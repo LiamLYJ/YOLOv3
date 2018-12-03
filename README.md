@@ -2,7 +2,6 @@
 
 PyTorch- YOLOv3 on face detection
 
-test
 fixpoint and float point training and testing
 
 requirements: 
