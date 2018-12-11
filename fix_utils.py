@@ -13,10 +13,10 @@ BIT_F = 8
 RANGE_MIN = 0.95
 RANGE_MAX = 0.95
 
-def G_fix(tensor, bit):
+def G_fix(tensor, bit, is_first):
     tmp = tensor.detach()
-    tmp_min = torch.min(tmp) * RANGE_MIN
-    tmp_max = torch.max(tmp) * RANGE_MAX
+    tmp_min = torch.min(tmp) * RANGE_MIN if is_first else torch.min(tmp)
+    tmp_max = torch.max(tmp) * RANGE_MAX if is_first else torch.max(tmp)
     tmp = torch.clamp(tmp, min = tmp_min, max = tmp_max)
     delta_r = (tmp_max - tmp_min) / (2**BIT_LEN - 1)
     tmp = (torch.round(tmp - tmp_min) /delta_r) * delta_r + tmp_min
@@ -50,22 +50,22 @@ class G_fix_Conv2d(nn.Module):
         if self.bias is not None:
             self.bias.data.uniform_(-0.1,0.1)
 
-    def fix_parameter(self,):
-        weight_data, s_w = G_fix(self.weight, bit = BIT_P_w)
+    def fix_parameter(self, is_first):
+        weight_data, s_w = G_fix(self.weight, bit = BIT_P_w, is_first = is_first)
         self.weight.data = weight_data
         self.scale_P_w = s_w
 
-        bias_data, s_b = G_fix(self.bias, bit = BIT_P_b)
+        bias_data, s_b = G_fix(self.bias, bit = BIT_P_b, is_first = is_first)
         self.bias.data = bias_data
         self.scale_P_b = s_b
 
-    def forward(self, input):
-        self.fix_parameter()
+    def forward(self, input, is_first):
+        self.fix_parameter(is_first)
         output = F.conv2d(input, self.weight, self.bias, self.stride,
                 self.padding)
         if not self.activation is None:
             output = self.activation(output)
-            output, s_f = G_fix(output, bit = BIT_F)
+            output, s_f = G_fix(output, bit = BIT_F, is_first = is_first)
             self.scale_F = s_f
         return output
 
@@ -98,11 +98,11 @@ class FixLinear(nn.Module):
         bias_data = G_fix(self.bias, bit = BIT_P_b)
         self.bias.data = bias_data
 
-    def forward(self, input_data):
-        self.fix_parameter()
+    def forward(self, input_data, is_first):
+        self.fix_parameter(is_first)
         output = F.LinearFunction.apply(input_data, self.weight, self.bias)
         if not self.activation is None:
             output = self.activation(output)
-            output, s_f = G_fix(output, bit = BIT_F)
+            output, s_f = G_fix(output, bit = BIT_F, is_first = is_first)
             self.scale_F = s_f
         return output
