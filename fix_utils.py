@@ -10,23 +10,26 @@ from torchvision.datasets import MNIST
 BIT_P_w = 8
 BIT_P_b = 32
 BIT_F = 8
-RANGE_MIN = 0.95
-RANGE_MAX = 0.95
+RANGE_MIN = 0.96
+RANGE_MAX = 0.96
 
-def G_fix(tensor, bit, is_first):
+def fix(tensor, bit, is_first):
     tmp = tensor.detach()
     tmp_min = torch.min(tmp) * RANGE_MIN if is_first else torch.min(tmp)
     tmp_max = torch.max(tmp) * RANGE_MAX if is_first else torch.max(tmp)
     tmp = torch.clamp(tmp, min = tmp_min, max = tmp_max)
-    delta_r = (tmp_max - tmp_min) / (2**BIT_LEN - 1)
-    tmp = (torch.round(tmp - tmp_min) /delta_r) * delta_r + tmp_min
-    return tmp, delta_r
+    scale = (tmp_max - tmp_min) / (2**bit - 1)
+    zero = tmp_min
+    tmp = (torch.round((tmp - tmp_min) /scale)) * scale + tmp_min
+    return tmp, scale, zero
 
 
-class G_fix_Conv2d(nn.Module):
+class fix_conv2d_block(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1,
-                    padding=0, bias=True, activation = None, training=True):
-        super(G_fix_Conv2d, self).__init__()
+                    padding=0, bias=True, bn = False, activation = None, training=True):
+        super(fix_conv2d_block, self).__init__()
+        assert (bias is not bn)
+
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
@@ -35,10 +38,16 @@ class G_fix_Conv2d(nn.Module):
         self.activation = activation
         self.training = training
 
-        # scale for S
+        # fix parameters
         self.scale_F = 0
         self.scale_P_w = 0
         self.sclae_P_b = 0
+        self.zero_F = None
+        self.zero_P_w = None
+        self.zero_P_b = None
+
+        # in the first time, need to deal with outleir
+        self.is_first = True
 
         self.weight = nn.Parameter(torch.Tensor(out_channels, in_channels, kernel_size, kernel_size))
         if bias:
@@ -50,59 +59,25 @@ class G_fix_Conv2d(nn.Module):
         if self.bias is not None:
             self.bias.data.uniform_(-0.1,0.1)
 
-    def fix_parameter(self, is_first):
-        weight_data, s_w = G_fix(self.weight, bit = BIT_P_w, is_first = is_first)
-        self.weight.data = weight_data
-        self.scale_P_w = s_w
+        if bn:
+            self.bn = nn.BatchNorm2d(self.out_channels)
+        else:
+            self.register_parameter('bn', None)
 
-        bias_data, s_b = G_fix(self.bias, bit = BIT_P_b, is_first = is_first)
-        self.bias.data = bias_data
-        self.scale_P_b = s_b
-
-    def forward(self, input, is_first):
-        self.fix_parameter(is_first)
+    def forward(self, input):
+        self.weight.data, self.scale_P_w, self.zero_P_w = fix(self.weight, bit = BIT_P_w, is_first = self.is_first)
+        if self.bias is not None:
+            self.bias.data, self.scale_P_b, self.zero_P_b = fix(self.bias, bit = BIT_P_b, is_first = self.is_first)
         output = F.conv2d(input, self.weight, self.bias, self.stride,
                 self.padding)
+
+        if self.bn is not None:
+            output = self.bn(output)
+
         if not self.activation is None:
             output = self.activation(output)
-            output, s_f = G_fix(output, bit = BIT_F, is_first = is_first)
-            self.scale_F = s_f
-        return output
+            output, self.scale_F, self.zero_F = fix(output, bit = BIT_F, is_first = self.is_first)
 
-class FixLinear(nn.Module):
-    def __init__(self, input_features, output_features, bias=True, training=True):
-        super(FixLinear, self).__init__()
-        self.input_features = input_features
-        self.output_features = output_features
-        self.training = training
-
-        # scale for S
-        self.scale_F = 0
-        self.scale_P_w = 0
-        self.sclae_P_b = 0
-
-        self.weight = nn.Parameter(torch.Tensor(output_features, input_features))
-        if bias:
-            self.bias = nn.Parameter(torch.Tensor(output_features))
-        else:
-            self.register_parameter('bias', None)
-
-        self.weight.data.uniform_(-0.1,0.1)
-        if self.bias is not None:
-            self.bias.data.uniform_(-0.1,0.1)
-
-
-    def fix_parameter(self):
-        weight_data = G_fix(self.weight, bit = BIT_P_w)
-        self.weight.data = weight_data
-        bias_data = G_fix(self.bias, bit = BIT_P_b)
-        self.bias.data = bias_data
-
-    def forward(self, input_data, is_first):
-        self.fix_parameter(is_first)
-        output = F.LinearFunction.apply(input_data, self.weight, self.bias)
-        if not self.activation is None:
-            output = self.activation(output)
-            output, s_f = G_fix(output, bit = BIT_F, is_first = is_first)
-            self.scale_F = s_f
+        # after forward one time, just set is_first to False
+        self.is_first = False
         return output
