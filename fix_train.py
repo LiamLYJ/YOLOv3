@@ -132,8 +132,11 @@ for epoch in range(opt.epochs):
                 detections = model(imgs)
                 detections = non_max_suppression(detections, 80, opt.conf_thres, opt.nms_thres)
                 # just use the first one from a batch
-                img = imgs[0]
-                detection = detections[0]
+                for batch_i in range(len(detections)):
+                    if detections[batch_i] is not None:
+                        img = imgs[batch_i]
+                        detection = detections[batch_i]
+                        break
                 frame = img.data.cpu().numpy()
                 frame = 255 * np.transpose(frame, [1,2,0])
                 frame = np.ascontiguousarray(frame, dtype=np.uint8)
@@ -147,6 +150,8 @@ for epoch in range(opt.epochs):
                     cv2.rectangle(frame, (x1,y1), (x2,y2), (0,255,0), 3)
             frame = np.expand_dims(np.transpose(frame, [2,0,1]),0)
             writer.add_image('prediction', frame, iteration)
+            original_img = np.expand_dims(img.data.cpu().numpy(), 0)
+            writer.add_image('input', original_img, iteration)
 
 
     if epoch % opt.checkpoint_interval == 0:
