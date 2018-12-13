@@ -38,13 +38,13 @@ class fix_conv2d_block(nn.Module):
         self.activation = activation
         self.training = training
 
-        # fix parameters
+        # fix parameters, just init
         self.scale_F = 0
         self.scale_P_w = 0
-        self.sclae_P_b = 0
-        self.zero_F = None
-        self.zero_P_w = None
-        self.zero_P_b = None
+        self.scale_P_b = 0
+        self.zero_F = -100
+        self.zero_P_w = -100
+        self.zero_P_b = -100
 
         # in the first time, need to deal with outleir
         self.is_first = True
@@ -74,9 +74,9 @@ class fix_conv2d_block(nn.Module):
         if self.bn is not None:
             output = self.bn(output)
 
-        if not self.activation is None:
+        if self.activation is not None:
             output = self.activation(output)
-            output, self.scale_F, self.zero_F = fix(output, bit = BIT_F, is_first = self.is_first)
+        output.data, self.scale_F, self.zero_F = fix(output, bit = BIT_F, is_first = self.is_first)
 
         # after forward one time, just set is_first to False
         self.is_first = False

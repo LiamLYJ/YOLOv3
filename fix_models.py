@@ -7,6 +7,7 @@ from torch.autograd import Variable
 import numpy as np
 
 from PIL import Image
+import pickle as pkl
 
 from utils.parse_config import *
 from utils.utils import build_targets
@@ -368,3 +369,28 @@ class Darknet(nn.Module):
                 conv_block.weight.data.cpu().numpy().tofile(fp)
 
         fp.close()
+
+    def save_fix_parameters(self, path):
+        output = {}
+        for item in self.module_list:
+            content = list(item._modules.items())[0]
+            if 'conv_block' in content[0]:
+                name = content[0]
+                staff = {}
+
+                staff['scale_F'] = float(content[1].scale_F)
+                staff['scale_P_w'] = float(content[1].scale_P_w)
+                staff['scale_P_b'] = float(content[1].scale_P_b)
+                staff['zero_F'] = float(content[1].zero_F)
+                staff['zero_P_w'] = float(content[1].zero_P_w)
+                staff['zero_P_b'] = float(content[1].zero_P_b)
+
+                if content[1].bn is not None:
+                    staff['bn_w'] = [float(t) for t in content[1].bn.weight.data]
+                    staff['bn_b'] = [float(t) for t in content[1].bn.bias.data]
+                    staff['bn_mean'] = [float(t) for t in content[1].bn.running_mean.data]
+                    staff['bn_var'] = [float(t) for t in content[1].bn.running_var.data]
+
+                output[name] = staff
+        with open(path, 'wb') as f:
+            pkl.dump(output, f, pkl.HIGHEST_PROTOCOL)

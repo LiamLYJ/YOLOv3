@@ -18,6 +18,7 @@ from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
 from tensorboardX import SummaryWriter
+import cv2
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--log_dir", type=str, default="log", help="path to dataset")
@@ -127,5 +128,27 @@ for epoch in range(opt.epochs):
             writer.add_scalar('recall', model.losses["recall"], iteration)
             writer.add_scalar('precision', model.losses["precision"], iteration)
 
+            with torch.no_grad():
+                detections = model(imgs)
+                detections = non_max_suppression(detections, 80, opt.conf_thres, opt.nms_thres)
+                # just use the first one from a batch
+                img = imgs[0]
+                detection = detections[0]
+                frame = img.data.cpu().numpy()
+                frame = 255 * np.transpose(frame, [1,2,0])
+                frame = np.ascontiguousarray(frame, dtype=np.uint8)
+                for x1, y1, x2, y2, conf, cls_conf, cls_pred in detection:
+                    x1 = int(x1)
+                    y1 = int(y1)
+                    x2 = int(x2)
+                    y2 = int(y2)
+                    box_h = y2- y1
+                    box_w = x2 - x1
+                    cv2.rectangle(frame, (x1,y1), (x2,y2), (0,255,0), 3)
+            frame = np.expand_dims(np.transpose(frame, [2,0,1]),0)
+            writer.add_image('prediction', frame, iteration)
+
+
     if epoch % opt.checkpoint_interval == 0:
         model.save_weights("%s/%d.weights" % (opt.checkpoint_dir, epoch))
+        model.save_fix_parameters("%s/%d_fix_hyper.pkl" % (opt.checkpoint_dir, epoch))
