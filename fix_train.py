@@ -141,13 +141,13 @@ for epoch in range(opt.epochs):
                 frame = 255 * np.transpose(frame, [1,2,0])
                 frame = np.ascontiguousarray(frame, dtype=np.uint8)
                 for x1, y1, x2, y2, conf, cls_conf, cls_pred in detection:
-                    x1 = int(x1)
-                    y1 = int(y1)
-                    x2 = int(x2)
-                    y2 = int(y2)
-                    box_h = y2- y1
-                    box_w = x2 - x1
                     try:
+                        x1 = int(x1)
+                        y1 = int(y1)
+                        x2 = int(x2)
+                        y2 = int(y2)
+                        box_h = y2- y1
+                        box_w = x2 - x1
                         cv2.rectangle(frame, (x1,y1), (x2,y2), (0,255,0), 3)
                     except:
                         print ('some overflow exception, just skip and continue')
