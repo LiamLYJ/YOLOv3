@@ -47,7 +47,8 @@ classes = load_classes(opt.class_path)
 
 # Get data configuration
 data_config = parse_data_config(opt.data_config_path)
-train_path = data_config["train"]
+# train_path = data_config["train"]
+train_path = os.path.expanduser('~') + "/Dataset/wider_face/train_list_file.txt"
 
 # Get hyper parameters
 hyperparams = parse_model_config(opt.model_config_path)[0]
