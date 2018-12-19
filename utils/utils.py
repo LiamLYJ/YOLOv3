@@ -157,6 +157,8 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
         if prediction.is_cuda:
             unique_labels = unique_labels.cuda()
         for c in unique_labels:
+            if c == 0:
+                continue
             # Get the detections with the particular class
             detections_class = detections[detections[:, -1] == c]
             # Sort the detections by maximum objectness confidence

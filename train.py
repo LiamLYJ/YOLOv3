@@ -17,18 +17,20 @@ from torchvision import datasets
 from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
+from tensorboardX import SummaryWriter
+import cv2
 
 from tensorboardX import SummaryWriter
 import cv2
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--log_dir", type=str, default="log", help="path to dataset")
-
+parser.add_argument("--log_dir", type=str, default="log_face", help="path to dataset")
 parser.add_argument("--epochs", type=int, default=30, help="number of epochs")
 parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
 parser.add_argument("--batch_size", type=int, default=12, help="size of each image batch")
 parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config file")
-parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
+# parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
+parser.add_argument("--data_config_path", type=str, default="config/face.data", help="path to data config file")
 parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
 parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
 parser.add_argument("--conf_thres", type=float, default=0.8, help="object confidence threshold")
@@ -37,7 +39,7 @@ parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads 
 parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
 parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
 parser.add_argument(
-    "--checkpoint_dir", type=str, default="checkpoints", help="directory where model checkpoints are saved"
+    "--checkpoint_dir", type=str, default="checkpoints_face", help="directory where model checkpoints are saved"
 )
 parser.add_argument("--use_cuda", type=bool, default=True, help="whether to use cuda if available")
 opt = parser.parse_args()
@@ -46,7 +48,8 @@ print(opt)
 cuda = torch.cuda.is_available() and opt.use_cuda
 
 os.makedirs("output", exist_ok=True)
-os.makedirs("checkpoints", exist_ok=True)
+os.makedirs(opt.checkpoint_dir, exist_ok=True)
+os.makedirs(opt.log_dir, exist_ok=True)
 
 classes = load_classes(opt.class_path)
 
@@ -92,7 +95,7 @@ for epoch in range(opt.epochs):
             loss = model(imgs, targets)
         except:
             print('overflow error, continue to next batch')
-            continue
+            # continue
 
         loss.backward()
         optimizer.step()
@@ -117,8 +120,7 @@ for epoch in range(opt.epochs):
         )
 
         model.seen += imgs.size(0)
-
-        if batch_i % 20 == 0:
+        if batch_i % 2 == 0:
             iteration = epoch * len(dataloader) + batch_i
             writer.add_scalar('loss_total', loss.item(), iteration)
             writer.add_scalar('loss_x', model.losses["x"], iteration)
@@ -132,13 +134,16 @@ for epoch in range(opt.epochs):
             writer.add_scalar('precision', model.losses["precision"], iteration)
 
             with torch.no_grad():
+                # draw detection
                 detections = model(imgs)
                 detections = non_max_suppression(detections, 80, opt.conf_thres, opt.nms_thres)
                 # just use the first one from a batch
+                which_one = 0
                 for batch_i in range(len(detections)):
                     if detections[batch_i] is not None:
                         img = imgs[batch_i]
                         detection = detections[batch_i]
+                        which_one = batch_i
                         break
                 frame = img.data.cpu().numpy()
                 frame = 255 * np.transpose(frame, [1,2,0])
@@ -154,8 +159,27 @@ for epoch in range(opt.epochs):
                         cv2.rectangle(frame, (x1,y1), (x2,y2), (0,255,0), 3)
                     except:
                         print ('some overflow exception, just skip and continue')
+
+                # draw gt
+                frame_gt = img.data.cpu().numpy()
+                frame_gt = 255 * np.transpose(frame_gt, [1,2,0])
+                frame_gt = np.ascontiguousarray(frame_gt, dtype = np.uint8)
+                gts = np.squeeze(targets.cpu().numpy()[which_one,...])
+                filter_mask = gts[:,0] == 1
+                gts = gts[filter_mask, ...]
+                for _, x1, y1, box_w, box_h in gts:
+                    x1 = int((x1 - box_w / 2)* opt.img_size)
+                    y1 = int((y1 - box_h / 2) * opt.img_size)
+                    box_w = box_w * opt.img_size
+                    box_h = box_h * opt.img_size
+                    x2 = min(int(x1 + box_w), opt.img_size)
+                    y2 = min(int(y1 + box_h), opt.img_size)
+                    cv2.rectangle(frame_gt, (x1,y1), (x2,y2), (0,255,0), 3)
+
             frame = np.expand_dims(np.transpose(frame, [2,0,1]),0)
             writer.add_image('prediction', frame, iteration)
+            frame_gt = np.expand_dims(np.transpose(frame_gt, [2,0,1]),0)
+            writer.add_image('gt', frame_gt, iteration)
             original_img = np.expand_dims(img.data.cpu().numpy(), 0)
             writer.add_image('input', original_img, iteration)
 
