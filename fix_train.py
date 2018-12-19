@@ -88,8 +88,11 @@ for epoch in range(opt.epochs):
         targets = Variable(targets.type(Tensor), requires_grad=False)
 
         optimizer.zero_grad()
-
-        loss = model(imgs, targets)
+        try:
+            loss = model(imgs, targets)
+        except:
+            print('overflow error, continue to next batch')
+            continue
 
         loss.backward()
         optimizer.step()
