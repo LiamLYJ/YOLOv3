@@ -95,7 +95,7 @@ for epoch in range(opt.epochs):
             loss = model(imgs, targets)
         except:
             print('overflow error, continue to next batch')
-            # continue
+            continue
 
         loss.backward()
         optimizer.step()
