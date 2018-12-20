@@ -62,7 +62,7 @@ def process(n_clusters = 9, npz_file = 'k_means_data.npy'):
     print ('center boxes:', cluster_centers)
 
 if __name__ == '__main__':
-    use_new = True
+    use_new = False
     if use_new:
         get(new_size = 416)
-    process(n_clusters = 9)
+    process(n_clusters = 10)
