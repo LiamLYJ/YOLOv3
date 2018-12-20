@@ -49,7 +49,7 @@ def convert_widerface(dataset_path, sub_set):
             gt_item[2] = '{:0.6f}'.format(int(gt_item[2]) / img_width)
             gt_item[3] = '{:0.6f}'.format(int(gt_item[3]) / img_height)
 
-            gt_list.append("1 " + " ".join(gt_item[:4]) + "\n")
+            gt_list.append("0 " + " ".join(gt_item[:4]) + "\n")
             num_gt -= 1
             if num_gt < 1:
                 write_label_file(os.path.join(labels_folder,cur_folder_name), cur_img_name.replace(".jpg",".txt"), gt_list)
@@ -61,9 +61,3 @@ def convert_widerface(dataset_path, sub_set):
 
 DATASET_PATH = os.path.expanduser('~') + "/Dataset/wider_face/"
 convert_widerface(DATASET_PATH, 'train')
-
-
-
-
-
-

@@ -29,11 +29,10 @@ parser.add_argument("--epochs", type=int, default=30, help="number of epochs")
 parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
 parser.add_argument("--batch_size", type=int, default=12, help="size of each image batch")
 parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config file")
-# parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
-parser.add_argument("--data_config_path", type=str, default="config/face.data", help="path to data config file")
+parser.add_argument("--train_path", type=str, default="/Dataset/wider_face/train_list_file.txt", help="path to data config file")
 parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
 parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
-parser.add_argument("--conf_thres", type=float, default=0.8, help="object confidence threshold")
+parser.add_argument("--conf_thres", type=float, default=0.5, help="object confidence threshold")
 parser.add_argument("--nms_thres", type=float, default=0.4, help="iou thresshold for non-maximum suppression")
 parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
 parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
@@ -54,9 +53,7 @@ os.makedirs(opt.log_dir, exist_ok=True)
 classes = load_classes(opt.class_path)
 
 # Get data configuration
-data_config = parse_data_config(opt.data_config_path)
-# train_path = data_config["train"]
-train_path = os.path.expanduser('~') + "/Dataset/wider_face/train_list_file.txt"
+train_path = os.path.expanduser('~')+ opt.train_path
 
 # Get hyper parameters
 hyperparams = parse_model_config(opt.model_config_path)[0]
@@ -77,7 +74,7 @@ model.train()
 
 # Get dataloader
 dataloader = torch.utils.data.DataLoader(
-    ListDataset(train_path), batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu
+    ListDataset(train_path, img_size=opt.img_size), batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu
 )
 
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
@@ -91,6 +88,7 @@ for epoch in range(opt.epochs):
         targets = Variable(targets.type(Tensor), requires_grad=False)
 
         optimizer.zero_grad()
+
         try:
             loss = model(imgs, targets)
         except:
@@ -156,7 +154,7 @@ for epoch in range(opt.epochs):
                         y2 = int(y2)
                         box_h = y2- y1
                         box_w = x2 - x1
-                        cv2.rectangle(frame, (x1,y1), (x2,y2), (0,255,0), 3)
+                        cv2.rectangle(frame, (x1,y1), (x2,y2), (0,255,0), 2)
                     except:
                         print ('some overflow exception, just skip and continue')
 
@@ -165,8 +163,6 @@ for epoch in range(opt.epochs):
                 frame_gt = 255 * np.transpose(frame_gt, [1,2,0])
                 frame_gt = np.ascontiguousarray(frame_gt, dtype = np.uint8)
                 gts = np.squeeze(targets.cpu().numpy()[which_one,...])
-                filter_mask = gts[:,0] == 1
-                gts = gts[filter_mask, ...]
                 for _, x1, y1, box_w, box_h in gts:
                     x1 = int((x1 - box_w / 2)* opt.img_size)
                     y1 = int((y1 - box_h / 2) * opt.img_size)
@@ -174,14 +170,12 @@ for epoch in range(opt.epochs):
                     box_h = box_h * opt.img_size
                     x2 = min(int(x1 + box_w), opt.img_size)
                     y2 = min(int(y1 + box_h), opt.img_size)
-                    cv2.rectangle(frame_gt, (x1,y1), (x2,y2), (0,255,0), 3)
+                    cv2.rectangle(frame_gt, (x1,y1), (x2,y2), (0,255,0), 2)
 
             frame = np.expand_dims(np.transpose(frame, [2,0,1]),0)
             writer.add_image('prediction', frame, iteration)
             frame_gt = np.expand_dims(np.transpose(frame_gt, [2,0,1]),0)
             writer.add_image('gt', frame_gt, iteration)
-            original_img = np.expand_dims(img.data.cpu().numpy(), 0)
-            writer.add_image('input', original_img, iteration)
 
     if epoch % opt.checkpoint_interval == 0:
         model.save_weights("%s/%d.weights" % (opt.checkpoint_dir, epoch))
