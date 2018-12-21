@@ -25,14 +25,13 @@ import cv2
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--log_dir", type=str, default="log_face", help="path to dataset")
-parser.add_argument("--epochs", type=int, default=30, help="number of epochs")
+parser.add_argument("--epochs", type=int, default=1000, help="number of epochs")
 parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
 parser.add_argument("--batch_size", type=int, default=12, help="size of each image batch")
 parser.add_argument("--model_config_path", type=str, default="config/yolo_lite.cfg", help="path to model config file")
 parser.add_argument("--train_path", type=str, default="/Dataset/wider_face/train_list_file.txt", help="path to data config file")
-parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
 parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
-parser.add_argument("--conf_thres", type=float, default=0.5, help="object confidence threshold")
+parser.add_argument("--conf_thres", type=float, default=0.8, help="object confidence threshold")
 parser.add_argument("--nms_thres", type=float, default=0.4, help="iou thresshold for non-maximum suppression")
 parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
 parser.add_argument("--img_size", type=int, default=224, help="size of each image dimension")
@@ -64,8 +63,12 @@ burn_in = int(hyperparams["burn_in"])
 
 # Initiate model
 model = Darknet(opt.model_config_path)
-# model.load_weights(opt.weights_path)
-model.apply(weights_init_normal)
+try:
+    model, load_epoch = load_model(opt.checkpoint_dir, model)
+    print('scuccese load model, eopch: %d'%(load_epoch))
+except:
+    print('initial weight')
+    model.apply(weights_init_normal)
 
 if cuda:
     model = model.cuda()
@@ -118,7 +121,7 @@ for epoch in range(opt.epochs):
         )
 
         model.seen += imgs.size(0)
-        if batch_i % 2 == 0:
+        if batch_i % 20 == 0:
             iteration = epoch * len(dataloader) + batch_i
             writer.add_scalar('loss_total', loss.item(), iteration)
             writer.add_scalar('loss_x', model.losses["x"], iteration)
@@ -178,4 +181,4 @@ for epoch in range(opt.epochs):
             writer.add_image('gt', frame_gt, iteration)
 
     if epoch % opt.checkpoint_interval == 0:
-        model.save_weights("%s/%d.weights" % (opt.checkpoint_dir, epoch))
+        save_model(opt.checkpoint_dir, epoch, model)

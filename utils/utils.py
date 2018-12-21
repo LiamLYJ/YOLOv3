@@ -9,6 +9,28 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import os
+import glob
+import re
+
+def save_model(model_dir, epoch, model, inter_size = None):
+    torch.save(model.state_dict(), os.path.join(
+        model_dir, 'model_%03d.ckpt'%(epoch)))
+    if not inter_size is None:
+        model_ = glob.glob(os.path.join(model_dir, 'fcn*'))
+        model_ = sorted(model_)
+        remove_count = len(model_) - inter_size
+        for index in range(remove_count):
+            os.remove(model_[index])
+        print ('remove some saved models once ')
+    print ('saveed once')
+
+def load_model(model_dir, model,):
+    model_found = glob.glob(os.path.join(model_dir, 'model*'))
+    model_ = sorted(model_found)[-1]
+    iter_old = re.findall('\d+', model_)[0]
+    model.load_state_dict(torch.load(model_))
+    return model, int(iter_old)
 
 
 def load_classes(path):
