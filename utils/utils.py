@@ -25,11 +25,23 @@ def save_model(model_dir, epoch, model, inter_size = None):
         print ('remove some saved models once ')
     print ('saveed once')
 
-def load_model(model_dir, model,):
+def load_model(model_dir, model, which_one = None):
     model_found = glob.glob(os.path.join(model_dir, 'model*'))
-    model_ = sorted(model_found)[-1]
-    iter_old = re.findall('\d+', model_)[0]
-    model.load_state_dict(torch.load(model_))
+    if which_one is None:
+        model_ = sorted(model_found)[-1]
+    else:
+        for item in model_found:
+            if which_one in item:
+                model_ = item
+    try:
+        iter_old = re.findall('\d+', model_)[0]
+    except:
+        raise ValueError('can not found model')
+    try:
+        model.load_state_dict(torch.load(model_))
+    except:
+        model.load_state_dict(torch.load(model_,map_location=lambda storage, loc: storage ))
+
     return model, int(iter_old)
 
 
