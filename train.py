@@ -24,7 +24,7 @@ from tensorboardX import SummaryWriter
 import cv2
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--log_dir", type=str, default="log_face", help="path to dataset")
+parser.add_argument("--log_dir", type=str, default="log_face/lite", help="path to dataset")
 parser.add_argument("--epochs", type=int, default=1000, help="number of epochs")
 parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
 parser.add_argument("--batch_size", type=int, default=12, help="size of each image batch")
@@ -37,7 +37,7 @@ parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads 
 parser.add_argument("--img_size", type=int, default=224, help="size of each image dimension")
 parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
 parser.add_argument(
-    "--checkpoint_dir", type=str, default="checkpoints_face", help="directory where model checkpoints are saved"
+    "--checkpoint_dir", type=str, default="checkpoints_face/lite", help="directory where model checkpoints are saved"
 )
 parser.add_argument("--use_cuda", type=bool, default=True, help="whether to use cuda if available")
 opt = parser.parse_args()
