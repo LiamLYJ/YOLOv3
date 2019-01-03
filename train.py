@@ -20,9 +20,6 @@ import torch.optim as optim
 from tensorboardX import SummaryWriter
 import cv2
 
-from tensorboardX import SummaryWriter
-import cv2
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--log_dir", type=str, default="log_face/lite", help="path to dataset")
 parser.add_argument("--epochs", type=int, default=1000, help="number of epochs")
@@ -35,7 +32,7 @@ parser.add_argument("--conf_thres", type=float, default=0.8, help="object confid
 parser.add_argument("--nms_thres", type=float, default=0.4, help="iou thresshold for non-maximum suppression")
 parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
 parser.add_argument("--img_size", type=int, default=224, help="size of each image dimension")
-parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
+parser.add_argument("--checkpoint_interval", type=int, default=2, help="interval between saving model weights")
 parser.add_argument(
     "--checkpoint_dir", type=str, default="checkpoints_face/lite", help="directory where model checkpoints are saved"
 )
@@ -45,7 +42,6 @@ print(opt)
 
 cuda = torch.cuda.is_available() and opt.use_cuda
 
-os.makedirs("output", exist_ok=True)
 os.makedirs(opt.checkpoint_dir, exist_ok=True)
 os.makedirs(opt.log_dir, exist_ok=True)
 
