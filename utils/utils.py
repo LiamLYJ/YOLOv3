@@ -38,12 +38,28 @@ def load_model(model_dir, model, which_one = None):
     except:
         raise ValueError('can not found model')
     try:
-        model.load_state_dict(torch.load(model_), strict = False)
+        model.load_state_dict(torch.load(model_))
     except:
-        model.load_state_dict(torch.load(model_,map_location=lambda storage,
-                                         loc: storage ), strict = False)
+        try:
+            # load with fixed  key map
+            fixed = remap_key(torch.load(model_))
+            model.load_state_dict(fixed)
+        except:
+            # load training with gpu to test  with cpu
+            model.load_state_dict(torch.load(model_,map_location=lambda storage, loc: storage))
 
     return model, int(iter_old)
+
+def remap_key(dict_model):
+    fixed = {}
+    for key in dict_model.keys():
+        if 'conv_' in key:
+            key_fixed = key.replace('conv_', 'conv_block_')
+        if 'batch_norm_' in key:
+            index = re.findall(r'\d+', key)[0]
+            key_fixed = key.replace('batch_norm_%s'%(index), 'conv_block_%s.bn'%(index))
+        fixed[key_fixed] = dict_model[key]
+    return fixed 
 
 
 def load_classes(path):
