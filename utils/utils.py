@@ -17,7 +17,7 @@ def save_model(model_dir, epoch, model, inter_size = None):
     torch.save(model.state_dict(), os.path.join(
         model_dir, 'model_%03d.ckpt'%(epoch)))
     if not inter_size is None:
-        model_ = glob.glob(os.path.join(model_dir, 'fcn*'))
+        model_ = glob.glob(os.path.join(model_dir, '*.ckpt'))
         model_ = sorted(model_)
         remove_count = len(model_) - inter_size
         for index in range(remove_count):
@@ -38,9 +38,10 @@ def load_model(model_dir, model, which_one = None):
     except:
         raise ValueError('can not found model')
     try:
-        model.load_state_dict(torch.load(model_))
+        model.load_state_dict(torch.load(model_), strict = False)
     except:
-        model.load_state_dict(torch.load(model_,map_location=lambda storage, loc: storage ))
+        model.load_state_dict(torch.load(model_,map_location=lambda storage,
+                                         loc: storage ), strict = False)
 
     return model, int(iter_old)
 
