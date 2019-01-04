@@ -266,6 +266,10 @@ def build_targets(
             # Get grid box indices
             gi = int(gx)
             gj = int(gy)
+            # overflowed just drop
+            if (gi >= nG or gj >= nG):
+                continue
+
             # Get shape of gt box
             gt_box = torch.FloatTensor(np.array([0, 0, gw, gh])).unsqueeze(0)
             # Get shape of anchor box

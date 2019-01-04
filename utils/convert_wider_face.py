@@ -44,8 +44,8 @@ def convert_widerface(dataset_path, sub_set):
             read_state = 2
         elif read_state == 2:
             gt_item = item.split(" ")
-            gt_item[0] = '{:0.6f}'.format((int(gt_item[0]) + 0.5 * float(gt_item[2])) / img_width)
-            gt_item[1] = '{:0.6f}'.format((int(gt_item[1]) + 0.5 * float(gt_item[3])) / img_height)
+            gt_item[0] = '{:0.6f}'.format((int(gt_item[0])-1+ 0.5 * float(gt_item[2])) / img_width)
+            gt_item[1] = '{:0.6f}'.format((int(gt_item[1])-1 + 0.5 * float(gt_item[3])) / img_height)
             gt_item[2] = '{:0.6f}'.format(int(gt_item[2]) / img_width)
             gt_item[3] = '{:0.6f}'.format(int(gt_item[3]) / img_height)
 
