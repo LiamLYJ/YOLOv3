@@ -65,10 +65,10 @@ class fix_conv2d_block(nn.Module):
             self.register_parameter('bn', None)
 
     def forward(self, input):
-        self.weight.data, self.scale_P_w, self.zero_P_w = fix(self.weight, bit = BIT_P_w, is_first = self.is_first)
+        fixed_weight, self.scale_P_w, self.zero_P_w = fix(self.weight, bit = BIT_P_w, is_first = self.is_first)
         if self.bias is not None:
             self.bias.data, self.scale_P_b, self.zero_P_b = fix(self.bias, bit = BIT_P_b, is_first = self.is_first)
-        output = F.conv2d(input, self.weight, self.bias, self.stride,
+        output = F.conv2d(input, fixed_weight, self.bias, self.stride,
                 self.padding)
 
         if self.bn is not None:
