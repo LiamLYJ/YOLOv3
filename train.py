@@ -143,7 +143,11 @@ for epoch in range(opt.epochs):
                         detection = detections[batch_i]
                         which_one = batch_i
                         break
-                frame = img.data.cpu().numpy()
+                try:
+                    frame = img.data.cpu().numpy()
+                except:
+                    print('no higher conf than conf thres, just skip the current tfb log')
+                    continue
                 frame = 255 * np.transpose(frame, [1,2,0])
                 frame = np.ascontiguousarray(frame, dtype=np.uint8)
                 for x1, y1, x2, y2, conf, cls_conf, cls_pred in detection:
