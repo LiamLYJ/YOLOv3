@@ -75,6 +75,9 @@ if cuda:
 def train(epoch):
 
     model.train()
+    train_average_loss = 0
+    train_average_recall = 0
+    train_average_precision = 0
 
     # Get dataloader
     dataloader = torch.utils.data.DataLoader(
@@ -86,6 +89,7 @@ def train(epoch):
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()))
 
     writer = SummaryWriter(opt.log_dir)
+    imgs = None
     for batch_i, (_, imgs, targets) in enumerate(dataloader):
         imgs = Variable(imgs.type(Tensor))
         targets = Variable(targets.type(Tensor), requires_grad=False)
@@ -120,74 +124,72 @@ def train(epoch):
                 model.losses["precision"],
             )
         )
+        train_average_loss += loss.item()
+        train_average_recall += model.losses["recall"]
+        train_average_precision += model.losses["precision"]
 
         model.seen += imgs.size(0)
-        if batch_i % 20 == 0:
-            iteration = epoch * len(dataloader) + batch_i
-            writer.add_scalar('loss_total', loss.item(), iteration)
-            writer.add_scalar('loss_x', model.losses["x"], iteration)
-            writer.add_scalar('loss_y', model.losses["y"], iteration)
-            writer.add_scalar('loss_w', model.losses["w"], iteration)
-            writer.add_scalar('loss_h', model.losses["h"], iteration)
-            writer.add_scalar('loss_conf', model.losses["conf"], iteration)
-            writer.add_scalar('loss_cls', model.losses["cls"], iteration)
 
-            writer.add_scalar('recall', model.losses["recall"], iteration)
-            writer.add_scalar('precision', model.losses["precision"], iteration)
+    iteration = epoch
+    writer.add_scalar('loss_total', train_average_loss / len(dataloader), iteration)
+    writer.add_scalar('recall', train_average_recall / len(dataloader) , iteration)
+    writer.add_scalar('precision', train_average_precision / len(dataloader), iteration)
 
-            with torch.no_grad():
-                # draw detection
-                detections = model(imgs)
-                detections = non_max_suppression(detections, 80, opt.conf_thres, opt.nms_thres)
-                # just use the first one from a batch
-                which_one = 0
-                for batch_i in range(len(detections)):
-                    if detections[batch_i] is not None:
-                        img = imgs[batch_i]
-                        detection = detections[batch_i]
-                        which_one = batch_i
-                        break
-                try:
-                    frame = img.data.cpu().numpy()
-                except:
-                    print('no higher conf than conf thres, just skip the current tfb log')
-                    continue
-                frame = 255 * np.transpose(frame, [1,2,0])
-                frame = np.ascontiguousarray(frame, dtype=np.uint8)
-                for x1, y1, x2, y2, conf, cls_conf, cls_pred in detection:
-                    try:
-                        x1 = int(x1)
-                        y1 = int(y1)
-                        x2 = int(x2)
-                        y2 = int(y2)
-                        box_h = y2 - y1
-                        box_w = x2 - x1
-                        cv2.rectangle(frame, (x1,y1), (x2,y2), (0,255,0), 2)
-                    except:
-                        print ('some overflow exception, just skip and continue')
+    with torch.no_grad():
+        # draw detection
+        detections = model(imgs)
+        detections = non_max_suppression(detections, 1, opt.conf_thres, opt.nms_thres)
+        # just use the first one from a batch
+        which_one = 0
+        for batch_i in range(len(detections)):
+            if detections[batch_i] is not None:
+                img = imgs[batch_i]
+                detection = detections[batch_i]
+                which_one = batch_i
+                break
+        try:
+            frame = img.data.cpu().numpy()
+        except:
+            print('no higher conf than conf thres, just skip the current tfb log')
+            return
+        frame = 255 * np.transpose(frame, [1,2,0])
+        frame = np.ascontiguousarray(frame, dtype=np.uint8)
+        for x1, y1, x2, y2, conf, cls_conf, cls_pred in detection:
+            try:
+                x1 = int(x1)
+                y1 = int(y1)
+                x2 = int(x2)
+                y2 = int(y2)
+                box_h = y2 - y1
+                box_w = x2 - x1
+                cv2.rectangle(frame, (x1,y1), (x2,y2), (0,255,0), 2)
+            except:
+                print ('some overflow exception, just skip and continue')
 
-                # draw gt
-                frame_gt = img.data.cpu().numpy()
-                frame_gt = 255 * np.transpose(frame_gt, [1,2,0])
-                frame_gt = np.ascontiguousarray(frame_gt, dtype = np.uint8)
-                gts = np.squeeze(targets.cpu().numpy()[which_one,...])
-                for _, x1, y1, box_w, box_h in gts:
-                    x1 = int((x1 - box_w / 2)* opt.img_size)
-                    y1 = int((y1 - box_h / 2) * opt.img_size)
-                    box_w = box_w * opt.img_size
-                    box_h = box_h * opt.img_size
-                    x2 = min(int(x1 + box_w), opt.img_size)
-                    y2 = min(int(y1 + box_h), opt.img_size)
-                    cv2.rectangle(frame_gt, (x1,y1), (x2,y2), (0,255,0), 2)
+        # draw gt
+        frame_gt = img.data.cpu().numpy()
+        frame_gt = 255 * np.transpose(frame_gt, [1,2,0])
+        frame_gt = np.ascontiguousarray(frame_gt, dtype = np.uint8)
+        gts = np.squeeze(targets.cpu().numpy()[which_one,...])
+        for _, x1, y1, box_w, box_h in gts:
+            x1 = int((x1 - box_w / 2)* opt.img_size)
+            y1 = int((y1 - box_h / 2) * opt.img_size)
+            box_w = box_w * opt.img_size
+            box_h = box_h * opt.img_size
+            x2 = min(int(x1 + box_w), opt.img_size)
+            y2 = min(int(y1 + box_h), opt.img_size)
+            cv2.rectangle(frame_gt, (x1,y1), (x2,y2), (0,255,0), 2)
 
-            frame = np.expand_dims(np.transpose(frame, [2,0,1]),0)
-            writer.add_image('prediction', frame, iteration)
-            frame_gt = np.expand_dims(np.transpose(frame_gt, [2,0,1]),0)
-            writer.add_image('gt', frame_gt, iteration)
+    frame = np.expand_dims(np.transpose(frame, [2,0,1]),0)
+    writer.add_image('prediction', frame, iteration)
+    frame_gt = np.expand_dims(np.transpose(frame_gt, [2,0,1]),0)
+    writer.add_image('gt', frame_gt, iteration)
 
 def validation(epoch):
-
     model.eval()
+    val_average_loss = 0
+    val_average_recall = 0
+    val_average_precision = 0
 
     # Get dataloader
     dataloader = torch.utils.data.DataLoader(
@@ -199,6 +201,7 @@ def validation(epoch):
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()))
 
     writer = SummaryWriter(opt.log_dir)
+    imags = None
     for batch_i, (_, imgs, targets) in enumerate(dataloader):
         imgs = Variable(imgs.type(Tensor))
         targets = Variable(targets.type(Tensor), requires_grad=False)
@@ -225,68 +228,61 @@ def validation(epoch):
         )
 
         model.seen += imgs.size(0)
-        if batch_i % 20 == 0:
-            iteration = epoch * len(dataloader) + batch_i
-            writer.add_scalar('val_loss_total', loss.item(), iteration)
-            writer.add_scalar('val_loss_x', model.losses["x"], iteration)
-            writer.add_scalar('val_loss_y', model.losses["y"], iteration)
-            writer.add_scalar('val_loss_w', model.losses["w"], iteration)
-            writer.add_scalar('val_loss_h', model.losses["h"], iteration)
-            writer.add_scalar('val_loss_conf', model.losses["conf"], iteration)
-            writer.add_scalar('val_loss_cls', model.losses["cls"], iteration)
 
-            writer.add_scalar('val_recall', model.losses["recall"], iteration)
-            writer.add_scalar('val_precision', model.losses["precision"], iteration)
+    iteration = epoch
+    writer.add_scalar('val_loss_total', val_average_loss, iteration)
+    writer.add_scalar('val_recall', val_average_recall, iteration)
+    writer.add_scalar('val_precision', val_average_precision, iteration)
 
-            with torch.no_grad():
-                # draw detection
-                detections = model(imgs)
-                detections = non_max_suppression(detections, 80, opt.conf_thres, opt.nms_thres)
-                # just use the first one from a batch
-                which_one = 0
-                for batch_i in range(len(detections)):
-                    if detections[batch_i] is not None:
-                        img = imgs[batch_i]
-                        detection = detections[batch_i]
-                        which_one = batch_i
-                        break
-                try:
-                    frame = img.data.cpu().numpy()
-                except:
-                    print('no higher conf than conf thres, just skip the current tfb log')
-                    continue
-                frame = 255 * np.transpose(frame, [1,2,0])
-                frame = np.ascontiguousarray(frame, dtype=np.uint8)
-                for x1, y1, x2, y2, conf, cls_conf, cls_pred in detection:
-                    try:
-                        x1 = int(x1)
-                        y1 = int(y1)
-                        x2 = int(x2)
-                        y2 = int(y2)
-                        box_h = y2 - y1
-                        box_w = x2 - x1
-                        cv2.rectangle(frame, (x1,y1), (x2,y2), (0,255,0), 2)
-                    except:
-                        print ('some overflow exception, just skip and continue')
+    with torch.no_grad():
+        # draw detection
+        detections = model(imgs)
+        detections = non_max_suppression(detections, 1, opt.conf_thres, opt.nms_thres)
+        # just use the first one from a batch
+        which_one = 0
+        for batch_i in range(len(detections)):
+            if detections[batch_i] is not None:
+                img = imgs[batch_i]
+                detection = detections[batch_i]
+                which_one = batch_i
+                break
+        try:
+            frame = img.data.cpu().numpy()
+        except:
+            print('no higher conf than conf thres, just skip the current tfb log')
+            return
+        frame = 255 * np.transpose(frame, [1,2,0])
+        frame = np.ascontiguousarray(frame, dtype=np.uint8)
+        for x1, y1, x2, y2, conf, cls_conf, cls_pred in detection:
+            try:
+                x1 = int(x1)
+                y1 = int(y1)
+                x2 = int(x2)
+                y2 = int(y2)
+                box_h = y2 - y1
+                box_w = x2 - x1
+                cv2.rectangle(frame, (x1,y1), (x2,y2), (0,255,0), 2)
+            except:
+                print ('some overflow exception, just skip and continue')
 
-                # draw gt
-                frame_gt = img.data.cpu().numpy()
-                frame_gt = 255 * np.transpose(frame_gt, [1,2,0])
-                frame_gt = np.ascontiguousarray(frame_gt, dtype = np.uint8)
-                gts = np.squeeze(targets.cpu().numpy()[which_one,...])
-                for _, x1, y1, box_w, box_h in gts:
-                    x1 = int((x1 - box_w / 2)* opt.img_size)
-                    y1 = int((y1 - box_h / 2) * opt.img_size)
-                    box_w = box_w * opt.img_size
-                    box_h = box_h * opt.img_size
-                    x2 = min(int(x1 + box_w), opt.img_size)
-                    y2 = min(int(y1 + box_h), opt.img_size)
-                    cv2.rectangle(frame_gt, (x1,y1), (x2,y2), (0,255,0), 2)
+        # draw gt
+        frame_gt = img.data.cpu().numpy()
+        frame_gt = 255 * np.transpose(frame_gt, [1,2,0])
+        frame_gt = np.ascontiguousarray(frame_gt, dtype = np.uint8)
+        gts = np.squeeze(targets.cpu().numpy()[which_one,...])
+        for _, x1, y1, box_w, box_h in gts:
+            x1 = int((x1 - box_w / 2)* opt.img_size)
+            y1 = int((y1 - box_h / 2) * opt.img_size)
+            box_w = box_w * opt.img_size
+            box_h = box_h * opt.img_size
+            x2 = min(int(x1 + box_w), opt.img_size)
+            y2 = min(int(y1 + box_h), opt.img_size)
+            cv2.rectangle(frame_gt, (x1,y1), (x2,y2), (0,255,0), 2)
 
-            frame = np.expand_dims(np.transpose(frame, [2,0,1]),0)
-            writer.add_image('val_prediction', frame, iteration)
-            frame_gt = np.expand_dims(np.transpose(frame_gt, [2,0,1]),0)
-            writer.add_image('val_gt', frame_gt, iteration)
+        frame = np.expand_dims(np.transpose(frame, [2,0,1]),0)
+        writer.add_image('val_prediction', frame, iteration)
+        frame_gt = np.expand_dims(np.transpose(frame_gt, [2,0,1]),0)
+        writer.add_image('val_gt', frame_gt, iteration)
 
     # if epoch % opt.checkpoint_interval == 0:
     #     save_model(opt.checkpoint_dir, epoch, model)
