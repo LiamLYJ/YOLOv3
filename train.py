@@ -71,6 +71,7 @@ except:
 if cuda:
     model = model.cuda()
 
+best_loss = float('inf')  # best test loss
   
 def train(epoch):
 
@@ -227,12 +228,21 @@ def validation(epoch):
             )
         )
 
+        val_average_loss += loss.item()
+        val_average_recall += model.losses["recall"]
+        val_average_precision += model.losses["precision"]
+
         model.seen += imgs.size(0)
 
     iteration = epoch
-    writer.add_scalar('val_loss_total', val_average_loss, iteration)
-    writer.add_scalar('val_recall', val_average_recall, iteration)
-    writer.add_scalar('val_precision', val_average_precision, iteration)
+    test_loss = val_average_loss / len(dataloader)
+    writer.add_scalar('val_loss_total', test_loss, iteration)
+    writer.add_scalar('val_recall', val_average_recall / len(dataloader), iteration)
+    writer.add_scalar('val_precision', val_average_precision / len(dataloader), iteration)
+    global best_loss
+    if test_loss < best_loss:
+        best_loss = test_loss
+        save_model(opt.checkpoint_dir, epoch, model)
 
     with torch.no_grad():
         # draw detection
@@ -286,6 +296,7 @@ def validation(epoch):
 
     # if epoch % opt.checkpoint_interval == 0:
     #     save_model(opt.checkpoint_dir, epoch, model)
+
 for epoch in range(opt.epochs):
     train(epoch)
     validation(epoch)
