@@ -241,6 +241,7 @@ def validation(epoch):
     writer.add_scalar('val_precision', val_average_precision / len(dataloader), iteration)
     global best_loss
     if test_loss < best_loss:
+        print("Saving.............")
         best_loss = test_loss
         save_model(opt.checkpoint_dir, epoch, model)
 
