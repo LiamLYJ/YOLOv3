@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--image_folder', type=str, default='data/samples', help='path to dataset')
 parser.add_argument('--config_path', type=str, default='config/yolo_lite.cfg', help='path to model config file')
 parser.add_argument('--conf_thres', type=float, default=0.99, help='object confidence threshold')
-parser.add_argument('--nms_thres', type=float, default=0.4, help='iou thresshold for non-maximum suppression')
+parser.add_argument('--nms_thres', type=float, default=0.1, help='iou thresshold for non-maximum suppression')
 parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
 parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
 parser.add_argument('--img_size', type=int, default=224, help='size of each image dimension')
@@ -28,7 +28,7 @@ parser.add_argument('--use_cuda', type=bool, default=False, help='whether to use
 parser.add_argument(
     "--checkpoint_dir", type=str, default="checkpoints_face/lite", help="directory where model checkpoints are saved"
 )
-parser.add_argument("--which_one", type=str, default="077", help="which model to load")
+parser.add_argument("--which_one", type=str, default="030", help="which model to load")
 opt = parser.parse_args()
 print(opt)
 

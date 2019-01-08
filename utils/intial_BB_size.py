@@ -14,7 +14,8 @@ def get_new_hw(new_size, h, w):
         new_w = new_size
     return new_h, new_h
 
-def get(new_size = 416, path = '/Dataset/wider_face/train_list_file.txt', save_file_name = 'k_means_data.npy'):
+def get(new_size = 416, path = '/Dataset/wider_face/train_list_file.txt', save_file_name = 'k_means_data.npy',
+        max_blur=1, max_expression=1, max_illumination=1, max_occlusion=2, max_pose=1, max_invalid=1, max_scale = 0.08):
     label_file = os.path.expanduser('~') +  path
 
     with open(label_file) as f:
@@ -42,7 +43,19 @@ def get(new_size = 416, path = '/Dataset/wider_face/train_list_file.txt', save_f
             label_data = fn.readlines()
             label_data = [x.strip() for x in label_data]
         for each_box in label_data:
-            box_w, box_h = [float(x) for x in each_box.split(' ')[-2:]]
+            strip_content = [float(x) for x in each_box.split(' ')]
+
+            # not to be count in
+            if strip_content[5] > max_blur or  \
+                strip_content[6] > max_expression or \
+                strip_content[7] > max_illumination or \
+                strip_content[8] > max_occlusion or \
+                strip_content[9] > max_pose or \
+                strip_content[10] > max_invalid or \
+                strip_content[4] < max_scale :
+                continue
+
+            box_w, box_h = strip_content[3:5]
             new_h, new_w = get_new_hw(new_size, h, w)
             box_w *= new_w
             box_h *= new_h
@@ -65,4 +78,4 @@ if __name__ == '__main__':
     use_new = True
     if use_new:
         get(new_size = 224)
-    process(n_clusters = 7)
+    process(n_clusters = 6)

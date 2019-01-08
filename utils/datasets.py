@@ -122,7 +122,7 @@ class ListDataset(Dataset):
 
 class FaceDataset(Dataset):
     def __init__(self, list_path, img_size=416, max_blur=1, max_expression=1, max_illumination=1,
-                    max_occlusion=2, max_pose=1, max_invalid=1):
+                    max_occlusion=2, max_pose=1, max_invalid=1, max_scale = 0.1):
         with open(list_path, 'r') as file:
             self.img_files = file.readlines()
         self.label_files = [path.replace('images', 'labels').replace('.png', '.txt').replace('.jpg', '.txt') for path in self.img_files]
@@ -134,6 +134,7 @@ class FaceDataset(Dataset):
         self.max_occlusion = max_occlusion
         self.max_pose = max_pose
         self.max_invalid = max_invalid
+        self.max_scale = max_scale
 
     def __getitem__(self, index):
 
@@ -189,6 +190,8 @@ class FaceDataset(Dataset):
             labels = labels[filter_raw_index]
             filter_raw_index = np.where(labels[:, 10] <= self.max_invalid)
             labels = labels[filter_raw_index]
+            filter_raw_index = np.where(labels[:, 4] >= self.max_scale)
+            labels = labels[filter_raw_index]
             # print("after filter: ", labels.shape)
             labels = labels[:,:5]
 
@@ -211,8 +214,12 @@ class FaceDataset(Dataset):
         filled_labels = np.zeros((self.max_objects, 5))
         if labels is not None:
             filled_labels[range(len(labels))[:self.max_objects]] = labels[:self.max_objects]
-        filled_labels = torch.from_numpy(filled_labels)
+        # if (np.sum(filled_labels!=0) > 0):
+        #     print ('yyyyyyyyyyyyyyyy')
+        # else:
+        #     print ('nnnnnnnnnnnnnn')
 
+        filled_labels = torch.from_numpy(filled_labels)
         return img_path, input_img, filled_labels
 
     def __len__(self):

@@ -79,12 +79,11 @@ def train(epoch):
     train_average_loss = 0
     train_average_recall = 0
     train_average_precision = 0
-
     # Get dataloader
+    dataset = FaceDataset(train_path, img_size = opt.img_size, max_blur=1, max_expression=1, max_illumination=0,
+                    max_occlusion=1, max_pose=1, max_invalid=0, max_scale = 0.08)
     dataloader = torch.utils.data.DataLoader(
-        FaceDataset(train_path, img_size=opt.img_size), batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu
-    )
-
+            dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
     Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()))
@@ -191,12 +190,11 @@ def validation(epoch):
     val_average_loss = 0
     val_average_recall = 0
     val_average_precision = 0
-
     # Get dataloader
+    dataset = FaceDataset(val_path, img_size = opt.img_size, max_blur=1, max_expression=1, max_illumination=0,
+                    max_occlusion=1, max_pose=1, max_invalid=0, max_scale = 0.08)
     dataloader = torch.utils.data.DataLoader(
-        FaceDataset(val_path, img_size=opt.img_size), batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu
-    )
-
+            dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
     Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()))
