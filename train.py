@@ -76,9 +76,14 @@ best_loss = float('inf')  # best test loss
 def train(epoch):
 
     model.train()
-    train_average_loss = 0
-    train_average_recall = 0
-    train_average_precision = 0
+    train_loss = 0
+    train_recall= 0
+    train_precision = 0
+    train_x_loss = 0
+    train_y_loss = 0
+    train_w_loss = 0
+    train_h_loss = 0
+    train_conf_loss = 0
     # Get dataloader
     dataset = FaceDataset(train_path, img_size = opt.img_size, max_blur=1, max_expression=1, max_illumination=0,
                     max_occlusion=1, max_pose=1, max_invalid=0, max_scale = 0.08)
@@ -96,11 +101,6 @@ def train(epoch):
 
         optimizer.zero_grad()
 
-        # try:
-            # loss = model(imgs, targets)
-        # except:
-            # print('overflow error, continue to next batch')
-            # continue
         loss = model(imgs, targets)
 
         loss.backward()
@@ -124,16 +124,27 @@ def train(epoch):
                 model.losses["precision"],
             )
         )
-        train_average_loss += loss.item()
-        train_average_recall += model.losses["recall"]
-        train_average_precision += model.losses["precision"]
+        train_loss += loss.item()
+        train_recall += model.losses["recall"]
+        train_precision += model.losses["precision"]
+        train_x_loss += model.losses["x"]
+        train_y_loss += model.losses["y"]
+        train_w_loss += model.losses["w"]
+        train_h_loss += model.losses["h"]
+        train_conf_loss += model.losses["conf"]
 
         model.seen += imgs.size(0)
 
     iteration = epoch
-    writer.add_scalar('loss_total', train_average_loss / len(dataloader), iteration)
-    writer.add_scalar('recall', train_average_recall / len(dataloader) , iteration)
-    writer.add_scalar('precision', train_average_precision / len(dataloader), iteration)
+    num_data = len(dataloader)
+    writer.add_scalar('loss_total', train_loss / num_data, iteration)
+    writer.add_scalar('recall', train_recall / num_data, iteration)
+    writer.add_scalar('precision', train_precision / num_data, iteration)
+    writer.add_scalar('loss_x', train_x_loss / num_data, iteration)
+    writer.add_scalar('loss_y', train_y_loss / num_data, iteration)
+    writer.add_scalar('loss_w', train_w_loss / num_data, iteration)
+    writer.add_scalar('loss_h', train_h_loss / num_data, iteration)
+    writer.add_scalar('loss_conf', train_conf_loss / num_data, iteration)
 
     with torch.no_grad():
         # draw detection
@@ -187,9 +198,14 @@ def train(epoch):
 
 def validation(epoch):
     model.eval()
-    val_average_loss = 0
-    val_average_recall = 0
-    val_average_precision = 0
+    val_loss = 0
+    val_recall = 0
+    val_precision = 0
+    val_x_loss = 0
+    val_y_loss = 0
+    val_w_loss = 0
+    val_h_loss = 0
+    val_conf_loss = 0
     # Get dataloader
     dataset = FaceDataset(val_path, img_size = opt.img_size, max_blur=1, max_expression=1, max_illumination=0,
                     max_occlusion=1, max_pose=1, max_invalid=0, max_scale = 0.08)
@@ -226,17 +242,28 @@ def validation(epoch):
             )
         )
 
-        val_average_loss += loss.item()
-        val_average_recall += model.losses["recall"]
-        val_average_precision += model.losses["precision"]
+        val_loss += loss.item()
+        val_recall += model.losses["recall"]
+        val_precision += model.losses["precision"]
+        val_x_loss += model.losses["x"]
+        val_y_loss += model.losses["y"]
+        val_w_loss += model.losses["w"]
+        val_h_loss += model.losses["h"]
+        val_conf_loss += model.losses["conf"]
 
         model.seen += imgs.size(0)
 
     iteration = epoch
-    test_loss = val_average_loss / len(dataloader)
+    num_data = len(dataloader)
+    test_loss = val_loss / num_data
     writer.add_scalar('val_loss_total', test_loss, iteration)
-    writer.add_scalar('val_recall', val_average_recall / len(dataloader), iteration)
-    writer.add_scalar('val_precision', val_average_precision / len(dataloader), iteration)
+    writer.add_scalar('val_recall', val_recall / num_data, iteration)
+    writer.add_scalar('val_precision', val_precision / num_data, iteration)
+    writer.add_scalar('val_loss_x', val_x_loss / num_data, iteration)
+    writer.add_scalar('val_loss_y', val_y_loss / num_data, iteration)
+    writer.add_scalar('val_loss_w', val_w_loss / num_data, iteration)
+    writer.add_scalar('val_loss_h', val_h_loss / num_data, iteration)
+    writer.add_scalar('val_loss_conf', val_conf_loss / num_data, iteration)
     global best_loss
     if test_loss < best_loss:
         print("Saving.............")
