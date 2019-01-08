@@ -72,9 +72,11 @@ if cuda:
 model.train()
 
 # Get dataloader
+
+dataset = FaceDataset(train_path, img_size = opt.img_size, max_blur=1, max_expression=1, max_illumination=0,
+                max_occlusion=1, max_pose=1, max_invalid=0, max_scale = 0.08)
 dataloader = torch.utils.data.DataLoader(
-    FaceDataset(train_path, img_size=opt.img_size), batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu
-)
+        dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
 
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 

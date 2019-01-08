@@ -22,9 +22,9 @@ import torch.optim as optim
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", type=int, default=1, help="size of each image batch")
 parser.add_argument("--config_path", type=str, default="config/yolo_lite.cfg", help="path to model config file")
-parser.add_argument("--iou_thres", type=float, default=0.5, help="iou threshold required to qualify as detected")
-parser.add_argument("--conf_thres", type=float, default=0.95, help="object confidence threshold")
-parser.add_argument("--nms_thres", type=float, default=0.3, help="iou thresshold for non-maximum suppression")
+parser.add_argument("--iou_thres", type=float, default=0.2, help="iou threshold required to qualify as detected")
+parser.add_argument("--conf_thres", type=float, default=0.99, help="object confidence threshold")
+parser.add_argument("--nms_thres", type=float, default=0.1, help="iou thresshold for non-maximum suppression")
 parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
 parser.add_argument("--img_size", type=int, default=224, help="size of each image dimension")
 parser.add_argument("--use_cuda", type=bool, default=True, help="whether to use cuda if available")
@@ -32,7 +32,7 @@ parser.add_argument("--test_path", type=str, default='/Dataset/wider_face/val_li
 parser.add_argument(
     "--checkpoint_dir", type=str, default="checkpoints_face/lite", help="directory where model checkpoints are saved"
 )
-parser.add_argument("--which_one", type=str, default="077", help="which model to load")
+parser.add_argument("--which_one", type=str, default="030", help="which model to load")
 
 opt = parser.parse_args()
 print(opt)
@@ -53,7 +53,8 @@ if cuda:
 model.eval()
 
 # Get dataloader
-dataset = ListDataset(test_path, img_size = opt.img_size)
+dataset = FaceDataset(train_path, img_size = opt.img_size, max_blur=1, max_expression=1, max_illumination=0,
+                max_occlusion=1, max_pose=1, max_invalid=0, max_scale = 0.1)
 dataloader = torch.utils.data.DataLoader(
         dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
 
@@ -118,7 +119,7 @@ for label in range(num_classes):
     scores = []
     num_annotations = 0
 
-    for i in tqdm.tqdm(range(len(all_annotations)), desc=f"Computing AP for class '{label}'"):
+    for i in tqdm.tqdm(range(len(all_annotations)), desc="Computing AP for class '{label}'"):
         detections = all_detections[i][label]
         annotations = all_annotations[i][label]
 
@@ -144,7 +145,7 @@ for label in range(num_classes):
             else:
                 true_positives.append(0)
                 false_count += 1
-    print ('precision: ', 1 - (false_count / (false_count + true_count)))
+    print ('precision: ', true_count / (false_count + true_count))
     print ('recall: ', true_count / num_annotations)
 
     # # no annotations -> AP for this class is 0
