@@ -61,3 +61,4 @@ def convert_widerface(dataset_path, sub_set):
 
 DATASET_PATH = os.path.expanduser('~') + "/Dataset/wider_face/"
 convert_widerface(DATASET_PATH, 'train')
+convert_widerface(DATASET_PATH, 'val')
