@@ -53,7 +53,7 @@ if cuda:
 model.eval()
 
 # Get dataloader
-dataset = FaceDataset(train_path, img_size = opt.img_size, max_blur=1, max_expression=1, max_illumination=0,
+dataset = FaceDataset(test_path, img_size = opt.img_size, max_blur=1, max_expression=1, max_illumination=0,
                 max_occlusion=1, max_pose=1, max_invalid=0, max_scale = 0.1)
 dataloader = torch.utils.data.DataLoader(
         dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
