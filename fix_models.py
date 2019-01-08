@@ -7,6 +7,7 @@ from torch.autograd import Variable
 import numpy as np
 
 from PIL import Image
+import pickle as pkl
 
 from utils.parse_config import *
 from utils.utils import build_targets
@@ -15,6 +16,7 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
+from fix_utils import *
 
 def create_modules(module_defs):
     """
@@ -31,21 +33,37 @@ def create_modules(module_defs):
             filters = int(module_def["filters"])
             kernel_size = int(module_def["size"])
             pad = (kernel_size - 1) // 2 if int(module_def["pad"]) else 0
+            # modules.add_module(
+            #     "conv_%d" % i,
+            #     nn.Conv2d(
+            #         in_channels=output_filters[-1],
+            #         out_channels=filters,
+            #         kernel_size=kernel_size,
+            #         stride=int(module_def["stride"]),
+            #         padding=pad,
+            #         bias=not bn,
+            #     ),
+            # )
+            # if bn:
+            #     modules.add_module("batch_norm_%d" % i, nn.BatchNorm2d(filters))
+            # if module_def["activation"] == "leaky":
+            #     modules.add_module("leaky_%d" % i, nn.LeakyReLU(0.1))
+
             modules.add_module(
-                "conv_%d" % i,
-                nn.Conv2d(
-                    in_channels=output_filters[-1],
-                    out_channels=filters,
+                "conv_block_%d"%i,
+                fix_conv2d_block(
+                    in_channels = output_filters[-1],
+                    out_channels = filters,
                     kernel_size=kernel_size,
-                    stride=int(module_def["stride"]),
-                    padding=pad,
-                    bias=not bn,
-                ),
+                    stride =int(module_def["stride"]),
+                    padding = pad,
+                    bias = not bn,
+                    bn = bn,
+                    # hardware may not have leaky_relu
+                    # activation = nn.LeakyReLU(0.1) if module_def['activation'] == "leaky" else None
+                    activation = nn.ReLU() if module_def['activation'] == "leaky" else None
+                )
             )
-            if bn:
-                modules.add_module("batch_norm_%d" % i, nn.BatchNorm2d(filters))
-            if module_def["activation"] == "leaky":
-                modules.add_module("leaky_%d" % i, nn.LeakyReLU(0.1))
 
         elif module_def["type"] == "maxpool":
             kernel_size = int(module_def["size"])
@@ -173,7 +191,10 @@ class YOLOLayer(nn.Module):
 
             nProposals = int((pred_conf > 0.5).sum().item())
             recall = float(nCorrect / nGT) if nGT else 1
-            precision = float(nCorrect / nProposals) if nProposals > 0 else 0 
+            try:
+                precision = float(nCorrect / nProposals)
+            except:
+                precision = 0
 
             # Handle masks
             mask = Variable(mask.type(ByteTensor))
@@ -286,10 +307,10 @@ class Darknet(nn.Module):
         ptr = 0
         for i, (module_def, module) in enumerate(zip(self.module_defs, self.module_list)):
             if module_def["type"] == "convolutional":
-                conv_layer = module[0]
+                conv_block = module[0]
                 if module_def["batch_normalize"]:
                     # Load BN bias, weights, running mean and running variance
-                    bn_layer = module[1]
+                    bn_layer = conv_block.bn
                     num_b = bn_layer.bias.numel()  # Number of biases
                     # Bias
                     bn_b = torch.from_numpy(weights[ptr : ptr + num_b]).view_as(bn_layer.bias)
@@ -309,14 +330,14 @@ class Darknet(nn.Module):
                     ptr += num_b
                 else:
                     # Load conv. bias
-                    num_b = conv_layer.bias.numel()
-                    conv_b = torch.from_numpy(weights[ptr : ptr + num_b]).view_as(conv_layer.bias)
-                    conv_layer.bias.data.copy_(conv_b)
+                    num_b = conv_block.bias.numel()
+                    conv_b = torch.from_numpy(weights[ptr : ptr + num_b]).view_as(conv_block.bias)
+                    conv_block.bias.data.copy_(conv_b)
                     ptr += num_b
                 # Load conv. weights
-                num_w = conv_layer.weight.numel()
-                conv_w = torch.from_numpy(weights[ptr : ptr + num_w]).view_as(conv_layer.weight)
-                conv_layer.weight.data.copy_(conv_w)
+                num_w = conv_block.weight.numel()
+                conv_w = torch.from_numpy(weights[ptr : ptr + num_w]).view_as(conv_block.weight)
+                conv_block.weight.data.copy_(conv_w)
                 ptr += num_w
 
     """
@@ -333,18 +354,43 @@ class Darknet(nn.Module):
         # Iterate through layers
         for i, (module_def, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
             if module_def["type"] == "convolutional":
-                conv_layer = module[0]
+                conv_block = module[0]
                 # If batch norm, load bn first
                 if module_def["batch_normalize"]:
-                    bn_layer = module[1]
+                    bn_layer = conv_block.bn
                     bn_layer.bias.data.cpu().numpy().tofile(fp)
                     bn_layer.weight.data.cpu().numpy().tofile(fp)
                     bn_layer.running_mean.data.cpu().numpy().tofile(fp)
                     bn_layer.running_var.data.cpu().numpy().tofile(fp)
                 # Load conv bias
                 else:
-                    conv_layer.bias.data.cpu().numpy().tofile(fp)
+                    conv_block.bias.data.cpu().numpy().tofile(fp)
                 # Load conv weights
-                conv_layer.weight.data.cpu().numpy().tofile(fp)
+                conv_block.weight.data.cpu().numpy().tofile(fp)
 
         fp.close()
+
+    def save_fix_parameters(self, path):
+        output = {}
+        for item in self.module_list:
+            content = list(item._modules.items())[0]
+            if 'conv_block' in content[0]:
+                name = content[0]
+                staff = {}
+
+                staff['scale_F'] = float(content[1].scale_F)
+                staff['scale_P_w'] = float(content[1].scale_P_w)
+                staff['scale_P_b'] = float(content[1].scale_P_b)
+                staff['zero_F'] = float(content[1].zero_F)
+                staff['zero_P_w'] = float(content[1].zero_P_w)
+                staff['zero_P_b'] = float(content[1].zero_P_b)
+
+                if content[1].bn is not None:
+                    staff['bn_w'] = [float(t) for t in content[1].bn.weight.data]
+                    staff['bn_b'] = [float(t) for t in content[1].bn.bias.data]
+                    staff['bn_mean'] = [float(t) for t in content[1].bn.running_mean.data]
+                    staff['bn_var'] = [float(t) for t in content[1].bn.running_var.data]
+
+                output[name] = staff
+        with open(path, 'wb') as f:
+            pkl.dump(output, f, pkl.HIGHEST_PROTOCOL)

@@ -20,30 +20,32 @@ from torch.autograd import Variable
 import torch.optim as optim
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--batch_size", type=int, default=16, help="size of each image batch")
-parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config file")
-parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
-parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
-parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
-parser.add_argument("--iou_thres", type=float, default=0.5, help="iou threshold required to qualify as detected")
-parser.add_argument("--conf_thres", type=float, default=0.5, help="object confidence threshold")
-parser.add_argument("--nms_thres", type=float, default=0.45, help="iou thresshold for non-maximum suppression")
+parser.add_argument("--batch_size", type=int, default=1, help="size of each image batch")
+parser.add_argument("--config_path", type=str, default="config/yolo_lite.cfg", help="path to model config file")
+parser.add_argument("--iou_thres", type=float, default=0.2, help="iou threshold required to qualify as detected")
+parser.add_argument("--conf_thres", type=float, default=0.99, help="object confidence threshold")
+parser.add_argument("--nms_thres", type=float, default=0.1, help="iou thresshold for non-maximum suppression")
 parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
-parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
+parser.add_argument("--img_size", type=int, default=224, help="size of each image dimension")
 parser.add_argument("--use_cuda", type=bool, default=True, help="whether to use cuda if available")
+parser.add_argument("--test_path", type=str, default='/Dataset/wider_face/val_list_file.txt', help="directory where test path")
+parser.add_argument(
+    "--checkpoint_dir", type=str, default="checkpoints_face/lite", help="directory where model checkpoints are saved"
+)
+parser.add_argument("--which_one", type=str, default="030", help="which model to load")
+
 opt = parser.parse_args()
 print(opt)
 
 cuda = torch.cuda.is_available() and opt.use_cuda
 
 # Get data configuration
-data_config = parse_data_config(opt.data_config_path)
-test_path = data_config["valid"]
-num_classes = int(data_config["classes"])
+test_path = os.path.expanduser('~') + opt.test_path
 
 # Initiate model
-model = Darknet(opt.model_config_path)
-model.load_weights(opt.weights_path)
+model = Darknet(opt.config_path)
+model, load_epoch = load_model(opt.checkpoint_dir, model, which_one = opt.which_one)
+print('scuccese load model, eopch: %d'%(load_epoch))
 
 if cuda:
     model = model.cuda()
@@ -51,8 +53,10 @@ if cuda:
 model.eval()
 
 # Get dataloader
-dataset = ListDataset(test_path)
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
+dataset = FaceDataset(test_path, img_size = opt.img_size, max_blur=1, max_expression=1, max_illumination=0,
+                max_occlusion=1, max_pose=1, max_invalid=0, max_scale = 0.1)
+dataloader = torch.utils.data.DataLoader(
+        dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
 
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
@@ -60,14 +64,17 @@ print("Compute mAP...")
 
 all_detections = []
 all_annotations = []
+# 1 for only face detection casses
+num_classes = 1
 
 for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc="Detecting objects")):
-
+    if batch_i > 100:
+        break
     imgs = Variable(imgs.type(Tensor))
 
     with torch.no_grad():
         outputs = model(imgs)
-        outputs = non_max_suppression(outputs, 80, conf_thres=opt.conf_thres, nms_thres=opt.nms_thres)
+        outputs = non_max_suppression(outputs, 1, conf_thres=opt.conf_thres, nms_thres=opt.nms_thres)
 
     for output, annotations in zip(outputs, targets):
 
@@ -105,11 +112,14 @@ for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc="Detecti
 
 average_precisions = {}
 for label in range(num_classes):
+    # true_positives is not used in simply version evaluation
     true_positives = []
+    true_count = 0
+    false_count = 0
     scores = []
     num_annotations = 0
 
-    for i in tqdm.tqdm(range(len(all_annotations)), desc=f"Computing AP for class '{label}'"):
+    for i in tqdm.tqdm(range(len(all_annotations)), desc="Computing AP for class '{label}'"):
         detections = all_detections[i][label]
         annotations = all_annotations[i][label]
 
@@ -121,6 +131,7 @@ for label in range(num_classes):
 
             if annotations.shape[0] == 0:
                 true_positives.append(0)
+                false_count += 1
                 continue
 
             overlaps = bbox_iou_numpy(np.expand_dims(bbox, axis=0), annotations)
@@ -130,36 +141,37 @@ for label in range(num_classes):
             if max_overlap >= opt.iou_thres and assigned_annotation not in detected_annotations:
                 true_positives.append(1)
                 detected_annotations.append(assigned_annotation)
+                true_count += 1
             else:
                 true_positives.append(0)
+                false_count += 1
+    print ('precision: ', true_count / (false_count + true_count))
+    print ('recall: ', true_count / num_annotations)
 
-    # no annotations -> AP for this class is 0
-    if num_annotations == 0:
-        average_precisions[label] = 0
-        continue
-
-    true_positives = np.array(true_positives)
-    false_positives = np.ones_like(true_positives) - true_positives
-    # sort by score
-    indices = np.argsort(-np.array(scores))
-    false_positives = false_positives[indices]
-    true_positives = true_positives[indices]
-
-    # compute false positives and true positives
-    false_positives = np.cumsum(false_positives)
-    true_positives = np.cumsum(true_positives)
-
-    # compute recall and precision
-    recall = true_positives / num_annotations
-    precision = true_positives / np.maximum(true_positives + false_positives, np.finfo(np.float64).eps)
-
-    # compute average precision
-    average_precision = compute_ap(recall, precision)
-    average_precisions[label] = average_precision
-
-print("Average Precisions:")
-for c, ap in average_precisions.items():
-    print(f"+ Class '{c}' - AP: {ap}")
-
-mAP = np.mean(list(average_precisions.values()))
-print(f"mAP: {mAP}")
+    # # no annotations -> AP for this class is 0
+    # if num_annotations == 0:
+    #     average_precisions[label] = 0
+    #     continue
+    #
+    # true_positives = np.array(true_positives)
+    # false_positives = np.ones_like(true_positives) - true_positives
+    # # sort by score
+    # indices = np.argsort(-np.array(scores))
+    # false_positives = false_positives[indices]
+    # true_positives = true_positives[indices]
+    #
+    # # compute false positives and true positives
+    # false_positives = np.cumsum(false_positives)
+    # true_positives = np.cumsum(true_positives)
+    #
+    # # compute recall and precision
+    # recall = true_positives / num_annotations
+    # precision = true_positives / np.maximum(true_positives + false_positives, np.finfo(np.float64).eps)
+    #
+    # # compute average precision
+    # average_precision = compute_ap(recall, precision)
+    # average_precisions[label] = average_precision
+    #
+    # print ('recall: ', recall)
+    # print ('precision:', precision)
+    # print ('ap: ', average_precision)

@@ -1,4 +1,5 @@
 
+*.swp
 .DS_Store
 build
 .git
@@ -10,3 +11,6 @@ backup
 weights/*.weights
 __pycache__
 checkpoints
+log_face/
+checkpoints_face/
+utils/k_means_data.npy

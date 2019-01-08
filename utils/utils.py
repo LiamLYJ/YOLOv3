@@ -9,6 +9,57 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import os
+import glob
+import re
+
+def save_model(model_dir, epoch, model, inter_size = None):
+    torch.save(model.state_dict(), os.path.join(
+        model_dir, 'model_%03d.ckpt'%(epoch)))
+    if not inter_size is None:
+        model_ = glob.glob(os.path.join(model_dir, '*.ckpt'))
+        model_ = sorted(model_)
+        remove_count = len(model_) - inter_size
+        for index in range(remove_count):
+            os.remove(model_[index])
+        print ('remove some saved models once ')
+    print ('saveed once')
+
+def load_model(model_dir, model, which_one = None):
+    model_found = glob.glob(os.path.join(model_dir, 'model*'))
+    if which_one is None:
+        model_ = sorted(model_found)[-1]
+    else:
+        for item in model_found:
+            if which_one in item:
+                model_ = item
+    try:
+        iter_old = re.findall('\d+', model_)[0]
+    except:
+        raise ValueError('can not found model')
+    try:
+        model.load_state_dict(torch.load(model_))
+    except:
+        try:
+            # load with fixed  key map
+            fixed = remap_key(torch.load(model_))
+            model.load_state_dict(fixed)
+        except:
+            # load training with gpu to test  with cpu
+            model.load_state_dict(torch.load(model_,map_location=lambda storage, loc: storage))
+
+    return model, int(iter_old)
+
+def remap_key(dict_model):
+    fixed = {}
+    for key in dict_model.keys():
+        if 'conv_' in key:
+            key_fixed = key.replace('conv_', 'conv_block_')
+        if 'batch_norm_' in key:
+            index = re.findall(r'\d+', key)[0]
+            key_fixed = key.replace('batch_norm_%s'%(index), 'conv_block_%s.bn'%(index))
+        fixed[key_fixed] = dict_model[key]
+    return fixed 
 
 
 def load_classes(path):
@@ -215,6 +266,10 @@ def build_targets(
             # Get grid box indices
             gi = int(gx)
             gj = int(gy)
+            # overflowed just drop
+            if (gi >= nG or gj >= nG):
+                continue
+
             # Get shape of gt box
             gt_box = torch.FloatTensor(np.array([0, 0, gw, gh])).unsqueeze(0)
             # Get shape of anchor box
