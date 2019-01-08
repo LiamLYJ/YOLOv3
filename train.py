@@ -66,6 +66,7 @@ try:
     print('scuccese load model, eopch: %d'%(load_epoch))
 except:
     print('initial weight')
+    load_epoch = 0
     model.apply(weights_init_normal)
 
 if cuda:
@@ -323,7 +324,7 @@ def validation(epoch):
     # if epoch % opt.checkpoint_interval == 0:
     #     save_model(opt.checkpoint_dir, epoch, model)
 
-for epoch in range(opt.epochs):
+for epoch in range(load_epoch, opt.epochs):
     train(epoch)
     validation(epoch)
   
