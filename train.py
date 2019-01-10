@@ -214,8 +214,6 @@ def validation(epoch):
             dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
     Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()))
-
     writer = SummaryWriter(opt.log_dir)
     imags = None
     for batch_i, (_, imgs, targets) in enumerate(dataloader):
@@ -269,7 +267,7 @@ def validation(epoch):
     if test_loss < best_loss:
         print("Saving.............")
         best_loss = test_loss
-        save_model(opt.checkpoint_dir, epoch, model)
+        save_model(opt.checkpoint_dir, epoch, model, best_model=True)
 
     with torch.no_grad():
         # draw detection
@@ -321,10 +319,9 @@ def validation(epoch):
         frame_gt = np.expand_dims(np.transpose(frame_gt, [2,0,1]),0)
         writer.add_image('val_gt', frame_gt, iteration)
 
-    # if epoch % opt.checkpoint_interval == 0:
-    #     save_model(opt.checkpoint_dir, epoch, model)
-
 for epoch in range(load_epoch, opt.epochs):
     train(epoch)
     validation(epoch)
   
+    if epoch % opt.checkpoint_interval == 0:
+        save_model(opt.checkpoint_dir, epoch, model)

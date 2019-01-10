@@ -13,8 +13,12 @@ import os
 import glob
 import re
 
-def save_model(model_dir, epoch, model, inter_size = None):
-    torch.save(model.state_dict(), os.path.join(
+def save_model(model_dir, epoch, model, best_model=False, inter_size = None):
+    if best_model:
+        torch.save(model.state_dict(), os.path.join(
+            model_dir, 'best_model.ckpt'))
+    else:
+        torch.save(model.state_dict(), os.path.join(
         model_dir, 'model_%03d.ckpt'%(epoch)))
     if not inter_size is None:
         model_ = glob.glob(os.path.join(model_dir, '*.ckpt'))
