@@ -19,7 +19,7 @@ from torch.autograd import Variable
 parser = argparse.ArgumentParser()
 parser.add_argument('--image_folder', type=str, default='data/samples', help='path to dataset')
 parser.add_argument('--config_path', type=str, default='config/yolo_lite.cfg', help='path to model config file')
-parser.add_argument('--conf_thres', type=float, default=0.99, help='object confidence threshold')
+parser.add_argument('--conf_thres', type=float, default=0.9, help='object confidence threshold')
 parser.add_argument('--nms_thres', type=float, default=0.1, help='iou thresshold for non-maximum suppression')
 parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
 parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
@@ -64,8 +64,8 @@ for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
     # Get detections
     with torch.no_grad():
         detections = model(input_imgs)
-        detections = non_max_suppression(detections, 80, opt.conf_thres, opt.nms_thres)
-
+        detections = non_max_suppression(detections, 1, opt.conf_thres, opt.nms_thres)
+        print(detections)
 
     # Log progress
     current_time = time.time()
@@ -95,6 +95,7 @@ for img_i, (path, detections) in enumerate(zip(imgs, img_detections)):
 
     # Draw bounding boxes and labels of detections
     if detections is not None:
+        print(detections)
         unique_labels = detections[:, -1].cpu().unique()
         n_cls_preds = len(unique_labels)
         for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections:
@@ -107,4 +108,4 @@ for img_i, (path, detections) in enumerate(zip(imgs, img_detections)):
             y2 = int(y1 + box_h)
             x2 = int(x1 + box_w)
             cv2.rectangle(img, (x1,y1), (x2,y2), (0,255,0), 2)
-    cv2.imwrite('results_%d.png'%(img_i), img[:,:,::-1])
+    cv2.imwrite('./output/results_%d.png'%(img_i), img[:,:,::-1])

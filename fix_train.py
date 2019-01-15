@@ -23,7 +23,7 @@ import cv2
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--log_dir", type=str, default="log_face/lite_fix", help="path to dataset")
-parser.add_argument("--epochs", type=int, default=500, help="number of epochs")
+parser.add_argument("--epochs", type=int, default=700, help="number of epochs")
 parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
 parser.add_argument("--batch_size", type=int, default=16, help="size of each image batch")
 parser.add_argument("--model_config_path", type=str, default="config/yolo_lite.cfg", help="path to model config file")
@@ -51,6 +51,7 @@ classes = load_classes(opt.class_path)
 
 # Get data configuration
 train_path = os.path.expanduser('~')+ opt.train_path
+val_path = os.path.expanduser('~')+ opt.val_path
 
 # Get hyper parameters
 hyperparams = parse_model_config(opt.model_config_path)[0]

@@ -88,12 +88,13 @@ class fix_conv2d_block(nn.Module):
         if self.activation is not None:
             output = self.activation(output)
 
-        new_max = torch.max(output)
-        new_min = torch.min(output)
-        self.current_max_output = self.current_max_output + self.alpha * (new_max - self.current_max_output)
-        self.current_min_output = self.current_min_output + self.alpha * (new_min - self.current_min_output)
+        with torch.no_grad():
+            new_max = torch.max(output)
+            new_min = torch.min(output)
+            self.current_max_output = self.current_max_output + self.alpha * (new_max - self.current_max_output)
+            self.current_min_output = self.current_min_output + self.alpha * (new_min - self.current_min_output)
 
-        output.data, self.scale_F, self.zero_F = fix_output(output, self.current_min_output, self.current_max_output, bit = BIT_F)
+        output.data, self.scale_F, self.zero_F = fix_output(output, self.current_min_output.data, self.current_max_output.data, bit = BIT_F)
 
         # after forward one time, just set is_first to False
         self.is_first = False
