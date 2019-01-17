@@ -28,6 +28,7 @@ parser.add_argument('--use_cuda', type=bool, default=False, help='whether to use
 parser.add_argument(
     "--checkpoint_dir", type=str, default="checkpoints_face/lite", help="directory where model checkpoints are saved"
 )
+parser.add_argument("--is_fix_model", type=bool, default=False, help='whether to use fix model')
 parser.add_argument("--which_one", type=str, default="030", help="which model to load")
 opt = parser.parse_args()
 print(opt)
@@ -37,10 +38,20 @@ cuda = torch.cuda.is_available() and opt.use_cuda
 os.makedirs('output', exist_ok=True)
 
 # Set up model
-model = Darknet(opt.config_path, img_size=opt.img_size)
-
-model, load_epoch = load_model(opt.checkpoint_dir, model, which_one = opt.which_one)
-print('scuccese load model, eopch: %d'%(load_epoch))
+if opt.is_fix_model:
+    from fix_models import *
+    model = Darknet(opt.config_path, img_size=opt.img_size)
+    try:
+        model, load_epoch = load_model(opt.checkpoint_dir, model)
+        print('# ########## scuccese load model from float dir:%s, epoch: %d'%(opt.checkpoint_dir,
+                                                                  load_epoch))
+    except:
+        raise ValueError('can not initial weigth when training in fix mode')
+else:
+    from models import *
+    model = Darknet(opt.config_path, img_size=opt.img_size)
+    model, load_epoch = load_model(opt.checkpoint_dir, model)
+    print('scuccese load model, eopch: %d'%(load_epoch))
 
 if cuda:
     model.cuda()
