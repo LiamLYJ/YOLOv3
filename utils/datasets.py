@@ -16,6 +16,55 @@ from skimage.transform import resize
 
 import sys
 
+def random_distort(
+    img,
+    brightness_delta=32/255.,
+    contrast_delta=0.5,
+    saturation_delta=0.5,
+    hue_delta=0.1):
+    '''A color related data augmentation used in SSD.
+
+    Args:
+      img: (PIL.Image) image to be color augmented.
+      brightness_delta: (float) shift of brightness, range from [1-delta,1+delta].
+      contrast_delta: (float) shift of contrast, range from [1-delta,1+delta].
+      saturation_delta: (float) shift of saturation, range from [1-delta,1+delta].
+      hue_delta: (float) shift of hue, range from [-delta,delta].
+
+    Returns:
+      img: (PIL.Image) color augmented image.
+    '''
+    def brightness(img, delta):
+        if random.random() < 0.5:
+            img = transforms.ColorJitter(brightness=delta)(img)
+        return img
+
+    def contrast(img, delta):
+        if random.random() < 0.5:
+            img = transforms.ColorJitter(contrast=delta)(img)
+        return img
+
+    def saturation(img, delta):
+        if random.random() < 0.5:
+            img = transforms.ColorJitter(saturation=delta)(img)
+        return img
+
+    def hue(img, delta):
+        if random.random() < 0.5:
+            img = transforms.ColorJitter(hue=delta)(img)
+        return img
+
+    img = brightness(img, brightness_delta)
+    if random.random() < 0.5:
+        img = contrast(img, contrast_delta)
+        img = saturation(img, saturation_delta)
+        img = hue(img, hue_delta)
+    else:
+        img = saturation(img, saturation_delta)
+        img = hue(img, hue_delta)
+        img = contrast(img, contrast_delta)
+    return img
+
 class ImageFolder(Dataset):
     def __init__(self, folder_path, img_size=416):
         self.files = sorted(glob.glob('%s/*.*' % folder_path))
@@ -122,7 +171,7 @@ class ListDataset(Dataset):
 
 class FaceDataset(Dataset):
     def __init__(self, list_path, img_size=416, max_blur=1, max_expression=1, max_illumination=1,
-                    max_occlusion=2, max_pose=1, max_invalid=1, max_scale = 0.1):
+                    max_occlusion=2, max_pose=1, max_invalid=1, max_scale = 0.1, transform = True):
         with open(list_path, 'r') as file:
             self.img_files = file.readlines()
         self.label_files = [path.replace('images', 'labels').replace('.png', '.txt').replace('.jpg', '.txt') for path in self.img_files]
@@ -135,6 +184,7 @@ class FaceDataset(Dataset):
         self.max_pose = max_pose
         self.max_invalid = max_invalid
         self.max_scale = max_scale
+        self.transform = transform
 
     def __getitem__(self, index):
 
@@ -143,7 +193,11 @@ class FaceDataset(Dataset):
         #---------
 
         img_path = self.img_files[index % len(self.img_files)].rstrip()
-        img = np.array(Image.open(img_path))
+        if self.transform:
+            img = random_distort(Image.open(img_path))
+        else:
+            img = Image.open(img_path)
+        img = np.array(img)
 
         # Handles images with less than three channels
         while len(img.shape) != 3:

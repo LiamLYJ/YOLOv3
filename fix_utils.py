@@ -13,7 +13,7 @@ BIT_F = 8
 RANGE_MIN = 0.96
 RANGE_MAX = 0.96
 
-def fix(tensor, bit, is_first):
+def fix_weight(tensor, bit, is_first):
     tmp = tensor.detach()
     tmp_min = torch.min(tmp) * RANGE_MIN if is_first else torch.min(tmp)
     tmp_max = torch.max(tmp) * RANGE_MAX if is_first else torch.max(tmp)
@@ -23,6 +23,13 @@ def fix(tensor, bit, is_first):
     tmp = (torch.round((tmp - tmp_min) /scale)) * scale + tmp_min
     return tmp, scale, zero
 
+def fix_output(tensor, min_value, max_value, bit):
+    tmp = tensor.detach()
+    tmp = torch.clamp(tmp, min = min_value, max = max_value)
+    scale = (max_value - min_value) / (2**bit - 1)
+    zero = min_value
+    tmp = (torch.round((tmp - min_value) /scale)) * scale + min_value
+    return tmp, scale, zero
 
 class fix_conv2d_block(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1,
@@ -49,6 +56,10 @@ class fix_conv2d_block(nn.Module):
         # in the first time, need to deal with outleir
         self.is_first = True
 
+        self.alpha = 0.9
+        self.current_max_output = 0
+        self.current_min_output = 0
+
         self.weight = nn.Parameter(torch.Tensor(out_channels, in_channels, kernel_size, kernel_size))
         if bias:
             self.bias = nn.Parameter(torch.Tensor(out_channels))
@@ -65,10 +76,10 @@ class fix_conv2d_block(nn.Module):
             self.register_parameter('bn', None)
 
     def forward(self, input):
-        self.weight.data, self.scale_P_w, self.zero_P_w = fix(self.weight, bit = BIT_P_w, is_first = self.is_first)
+        weight_temp, self.scale_P_w, self.zero_P_w = fix_weight(self.weight, bit = BIT_P_w, is_first = self.is_first)
         if self.bias is not None:
-            self.bias.data, self.scale_P_b, self.zero_P_b = fix(self.bias, bit = BIT_P_b, is_first = self.is_first)
-        output = F.conv2d(input, self.weight, self.bias, self.stride,
+            self.bias.data, self.scale_P_b, self.zero_P_b = fix_weight(self.bias, bit = BIT_P_b, is_first = self.is_first)
+        output = F.conv2d(input, weight_temp, self.bias, self.stride,
                 self.padding)
 
         if self.bn is not None:
@@ -76,7 +87,14 @@ class fix_conv2d_block(nn.Module):
 
         if self.activation is not None:
             output = self.activation(output)
-        output.data, self.scale_F, self.zero_F = fix(output, bit = BIT_F, is_first = self.is_first)
+
+        with torch.no_grad():
+            new_max = torch.max(output)
+            new_min = torch.min(output)
+            self.current_max_output = self.current_max_output + self.alpha * (new_max - self.current_max_output)
+            self.current_min_output = self.current_min_output + self.alpha * (new_min - self.current_min_output)
+
+        output.data, self.scale_F, self.zero_F = fix_output(output, self.current_min_output.data, self.current_max_output.data, bit = BIT_F)
 
         # after forward one time, just set is_first to False
         self.is_first = False
