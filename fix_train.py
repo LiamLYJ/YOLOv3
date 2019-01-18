@@ -92,8 +92,7 @@ def train(epoch):
     train_h_loss = 0
     train_conf_loss = 0
     # Get dataloader
-    dataset = FaceDataset(train_path, img_size = opt.img_size, max_blur=1, max_expression=1, max_illumination=1,
-                    max_occlusion=1, max_pose=1, max_invalid=0, max_scale = 0.05)
+    dataset = FaceDataset(train_path, img_size = opt.img_size, max_scale = 0.03)
     dataloader = torch.utils.data.DataLoader(
             dataset, batch_size=opt.batch_size, shuffle=True, num_workers=opt.n_cpu)
     Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
@@ -214,8 +213,7 @@ def validation(epoch):
     val_h_loss = 0
     val_conf_loss = 0
     # Get dataloader
-    dataset = FaceDataset(val_path, img_size = opt.img_size, max_blur=1, max_expression=1, max_illumination=0,
-                    max_occlusion=1, max_pose=1, max_invalid=0, max_scale = 0.08)
+    dataset = FaceDataset(val_path, img_size = opt.img_size, max_scale = 0.03)
     dataloader = torch.utils.data.DataLoader(
             dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
     Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor

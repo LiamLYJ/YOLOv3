@@ -43,7 +43,7 @@ if opt.is_fix_model:
     model = Darknet(opt.config_path, img_size=opt.img_size)
     try:
         model, load_epoch = load_model(opt.checkpoint_dir, model)
-        print('# ########## scuccese load model from float dir:%s, epoch: %d'%(opt.checkpoint_dir,
+        print('# ########## scuccese load model from fix model dir:%s, epoch: %d'%(opt.checkpoint_dir,
                                                                   load_epoch))
     except:
         raise ValueError('can not initial weigth when training in fix mode')
@@ -51,7 +51,7 @@ else:
     from models import *
     model = Darknet(opt.config_path, img_size=opt.img_size)
     model, load_epoch = load_model(opt.checkpoint_dir, model)
-    print('scuccese load model, eopch: %d'%(load_epoch))
+    print('scuccese load float model, eopch: %d'%(load_epoch))
 
 if cuda:
     model.cuda()
