@@ -13,10 +13,14 @@ BIT_F = 8
 RANGE_MIN = 0.96
 RANGE_MAX = 0.96
 
-def fix_weight(tensor, bit, is_first):
+def fix_weight(tensor, bit, is_first, fuse_tensor = None):
     tmp = tensor.detach()
-    tmp_min = torch.min(tmp) * RANGE_MIN if is_first else torch.min(tmp)
-    tmp_max = torch.max(tmp) * RANGE_MAX if is_first else torch.max(tmp)
+    if fuse_tensor is None:
+        tmp_min = torch.min(tmp) * RANGE_MIN if is_first else torch.min(tmp)
+        tmp_max = torch.max(tmp) * RANGE_MAX if is_first else torch.max(tmp)
+    else:
+        tmp_min = torch.min(fuse_tensor) * RANGE_MIN if is_first else torch.min(fuse_tensor)
+        tmp_max = torch.max(fuse_tensor) * RANGE_MAX if is_first else torch.max(fuse_tensor)
     tmp = torch.clamp(tmp, min = tmp_min, max = tmp_max)
     scale = (tmp_max - tmp_min) / (2**bit - 1)
     zero = tmp_min
@@ -30,6 +34,18 @@ def fix_output(tensor, min_value, max_value, bit):
     zero = min_value
     tmp = (torch.round((tmp - min_value) /scale)) * scale + min_value
     return tmp, scale, zero
+
+def fix_bias(tensor, s1, s2):
+    tmp = tensor.detach()
+    scale = s1 * s2 
+    zero = 0
+    tmp = torch.round(tmp / scale) * scale 
+    return tmp, scale, zero
+
+def get_scale(tensor, bit):
+    tmp = tensor.detach()
+    scale = (torch.max(tmp) - torch.min(tmp)) / (2**bit -1)
+    return scale
 
 class fix_conv2d_block(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1,
@@ -76,14 +92,29 @@ class fix_conv2d_block(nn.Module):
             self.register_parameter('bn', None)
 
     def forward(self, input):
-        weight_temp, self.scale_P_w, self.zero_P_w = fix_weight(self.weight, bit = BIT_P_w, is_first = self.is_first)
+        weight_temp, bias_temp, fuse_weight = None, None, None
+        input_scale = get_scale(input, BIT_F)
+
+        # use simulate the bn fusing 
+        if self.bn is not None:
+            fuse_weight = self.weight.clone().view(self.out_channels, -1)
+            weight_bn = torch.diag(self.bn.weight.div(torch.sqrt(self.bn.eps + self.bn.running_var)))
+            fuse_weight = torch.mm(weight_bn, fuse_weight)
+        # self.weight.data, self.scale_P_w, self.zero_P_w = fix_weight(self.weight, bit = BIT_P_w, is_first = self.is_first, fuse_weight)
+        weight_temp, self.scale_P_w, self.zero_P_w = fix_weight(self.weight, bit = BIT_P_w, is_first = self.is_first, fuse_weight)
         if self.bias is not None:
-            self.bias.data, self.scale_P_b, self.zero_P_b = fix_weight(self.bias, bit = BIT_P_b, is_first = self.is_first)
-        output = F.conv2d(input, weight_temp, self.bias, self.stride,
-                self.padding)
+            # self.bias.data, self.scale_P_b, self.zero_P_b = fix_bias(self.bias, input_scale, self.scale_P_w)
+            bias_temp, self.scale_P_b, self.zero_P_b = fix_bias(self.bias, input_scale, self.scale_P_w)
+
+        # output = F.conv2d(input, self.weight, self.bias, self.stride, self.padding)
+        output = F.conv2d(input, weight_temp, bias_temp, self.stride, self.padding)
 
         if self.bn is not None:
-            output = self.bn(output)
+            # self.bn.bias.data = fix_bias(self.bn.bias, input_scale, self.scale_P_w)
+            bn_bias_temp = fix_bias(self.bn.bias, input_scale, self.scale_P_w)
+
+            # output = self.bn(output)
+            output = F.batch_norm(output, self.bn.running_mean, self.bn.running_var, self.bn.weight, bn_bias_temp)
 
         if self.activation is not None:
             output = self.activation(output)

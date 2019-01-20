@@ -370,6 +370,8 @@ class Darknet(nn.Module):
 
         fp.close()
 
+    # deprcated 
+    # doesn't need to be saved, just use trained parameter to compute zero and scale
     def save_fix_parameters(self, path):
         output = {}
         for item in self.module_list:
