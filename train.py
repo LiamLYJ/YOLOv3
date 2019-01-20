@@ -73,7 +73,8 @@ if cuda:
     model = model.cuda()
 
 best_loss = float('inf')  # best test loss
-  
+writer = SummaryWriter(opt.log_dir)
+
 def train(epoch):
 
     model.train()
@@ -93,7 +94,6 @@ def train(epoch):
 
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()))
 
-    writer = SummaryWriter(opt.log_dir)
     imgs = None
     for batch_i, (_, imgs, targets) in enumerate(dataloader):
         imgs = Variable(imgs.type(Tensor))
@@ -212,8 +212,7 @@ def validation(epoch):
             dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
     Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-    writer = SummaryWriter(opt.log_dir)
-    imags = None
+    imgs = None
     for batch_i, (_, imgs, targets) in enumerate(dataloader):
         imgs = Variable(imgs.type(Tensor))
         targets = Variable(targets.type(Tensor), requires_grad=False)
