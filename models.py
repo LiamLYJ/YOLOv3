@@ -147,9 +147,11 @@ class YOLOLayer(nn.Module):
         pred_boxes = FloatTensor(prediction[..., :4].shape)
         pred_boxes[..., 0] = x.data + grid_x
         pred_boxes[..., 1] = y.data + grid_y
-        pred_boxes[..., 2] = torch.exp(w.data) * anchor_w
-        pred_boxes[..., 3] = torch.exp(h.data) * anchor_h
-
+        # pred_boxes[..., 2] = torch.exp(w.data) * anchor_w
+        # pred_boxes[..., 3] = torch.exp(h.data) * anchor_h
+        # change e to a small number -> 1.2, for fix pointed need 
+        pred_boxes[..., 2] = torch.pow(1.2, w.data) * anchor_w
+        pred_boxes[..., 3] = torch.pow(1.2, h.data) * anchor_h
         # Training
         if targets is not None:
 
