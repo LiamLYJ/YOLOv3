@@ -26,7 +26,7 @@ parser.add_argument("--log_dir", type=str, default="log_face/lite_fix", help="pa
 parser.add_argument("--epochs", type=int, default=700, help="number of epochs")
 parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
 parser.add_argument("--batch_size", type=int, default=16, help="size of each image batch")
-parser.add_argument("--model_config_path", type=str, default="config/yolo_lite.cfg", help="path to model config file")
+parser.add_argument("--model_config_path", type=str, default="config/yolo_lite_fix.cfg", help="path to model config file")
 parser.add_argument("--train_path", type=str, default="/Dataset/wider_face/train_list_file.txt", help="path to data config file")
 parser.add_argument("--val_path", type=str, default="/Dataset/wider_face/val_list_file.txt", help="path to data config file")
 parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
