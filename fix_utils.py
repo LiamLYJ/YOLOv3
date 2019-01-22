@@ -115,7 +115,8 @@ class fix_conv2d_block(nn.Module):
 
         output = F.conv2d(input, self.weight, self.bias, self.stride, self.padding)
         self.weight.data = weight_copy
-        self.bias.data = bias_copy
+        if self.bias is not None:
+            self.bias.data = bias_copy
         # output = F.conv2d(input, weight_temp, bias_temp, self.stride, self.padding)
 
         if self.bn is not None:
