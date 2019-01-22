@@ -74,8 +74,8 @@ class fix_conv2d_block(nn.Module):
         self.is_first = True
 
         self.alpha = 0.9
-        self.current_max_output = 0
-        self.current_min_output = 0
+        self.cur_max_F = 0
+        self.cur_min_F = 0
 
         self.weight = nn.Parameter(torch.Tensor(out_channels, in_channels, kernel_size, kernel_size))
         if bias:
@@ -103,24 +103,29 @@ class fix_conv2d_block(nn.Module):
             weight_bn = torch.diag(self.bn.weight.div(torch.sqrt(self.bn.eps + self.bn.running_var)))
             fuse_weight = torch.mm(weight_bn, fuse_weight)
 
+        weight_copy = self.weight.data
         self.weight.data, self.scale_P_w, self.zero_P_w = fix_weight(self.weight, bit = BIT_P_w, is_first = self.is_first, fuse_tensor = fuse_weight)
         # weight_temp, self.scale_P_w, self.zero_P_w = fix_weight(self.weight, bit = BIT_P_w, is_first = self.is_first, fuse_tensor = fuse_weight)
 
         if self.bias is not None:
             assert self.bn is None
+            bias_copy = self.bias.data
             self.bias.data, self.scale_P_b, self.zero_P_b = fix_bias(self.bias, input_scale, self.scale_P_w)
             # bias_temp, self.scale_P_b, self.zero_P_b = fix_bias(self.bias, input_scale, self.scale_P_w)
 
         output = F.conv2d(input, self.weight, self.bias, self.stride, self.padding)
+        self.weight.data = weight_copy
+        self.bias.data = bias_copy
         # output = F.conv2d(input, weight_temp, bias_temp, self.stride, self.padding)
-        # output = F.conv2d(input, self.weight, bias_temp, self.stride, self.padding)
 
         if self.bn is not None:
+            bn_bias_copy = self.bn.bias.data
             self.bn.bias.data, self.scale_P_b, self.zero_P_b = fix_bias(self.bn.bias, input_scale, self.scale_P_w)
             # bn_bias_temp, self.scale_P_b, self.zero_P_b = fix_bias(self.bn.bias, input_scale, self.scale_P_w)
 
             output = self.bn(output)
             # output = F.batch_norm(output, self.bn.running_mean, self.bn.running_var, self.bn.weight, bn_bias_temp)
+            self.bn.bias.data = bn_bias_copy
 
         if self.activation is not None:
             output = self.activation(output)
@@ -128,10 +133,10 @@ class fix_conv2d_block(nn.Module):
         with torch.no_grad():
             new_max = torch.max(output)
             new_min = torch.min(output)
-            self.current_max_output = self.current_max_output + self.alpha * (new_max - self.current_max_output)
-            self.current_min_output = self.current_min_output + self.alpha * (new_min - self.current_min_output)
+            self.cur_max_F = self.cur_max_F + self.alpha * (new_max - self.cur_max_F)
+            self.cur_min_F = self.cur_min_F + self.alpha * (new_min - self.cur_min_F)
 
-        output.data, self.scale_F, self.zero_F = fix_output(output, self.current_min_output.data, self.current_max_output.data, bit = BIT_F)
+        output.data, self.scale_F, self.zero_F = fix_output(output, self.cur_min_F.data, self.cur_max_F.data, bit = BIT_F)
 
         # after forward one time, just set is_first to False
         self.is_first = False
