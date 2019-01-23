@@ -295,6 +295,8 @@ def build_targets(
             tx[b, best_n, gj, gi] = gx - gi
             ty[b, best_n, gj, gi] = gy - gj
             # Width and height
+            # tw[b, best_n, gj, gi] = math.log(gw / anchors[best_n][0] + 1e-16)
+            # th[b, best_n, gj, gi] = math.log(gh / anchors[best_n][1] + 1e-16)
             tw[b, best_n, gj, gi] = math.log(gw / anchors[best_n][0] + 1e-16, 1.2)
             th[b, best_n, gj, gi] = math.log(gh / anchors[best_n][1] + 1e-16, 1.2)
             # One-hot encoding of label
