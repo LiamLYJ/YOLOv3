@@ -240,8 +240,7 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
 
 
 def build_targets(
-    pred_boxes, pred_conf, pred_cls, target, anchors, num_anchors, num_classes, grid_size, ignore_thres, img_dim
-):
+    pred_boxes, pred_conf, pred_cls, target, anchors, num_anchors, num_classes, grid_size, ignore_thres, img_dim, exponent):
     nB = target.size(0)
     nA = num_anchors
     nC = num_classes
@@ -295,10 +294,8 @@ def build_targets(
             tx[b, best_n, gj, gi] = gx - gi
             ty[b, best_n, gj, gi] = gy - gj
             # Width and height
-            # tw[b, best_n, gj, gi] = math.log(gw / anchors[best_n][0] + 1e-16)
-            # th[b, best_n, gj, gi] = math.log(gh / anchors[best_n][1] + 1e-16)
-            tw[b, best_n, gj, gi] = math.log(gw / anchors[best_n][0] + 1e-16, 1.2)
-            th[b, best_n, gj, gi] = math.log(gh / anchors[best_n][1] + 1e-16, 1.2)
+            tw[b, best_n, gj, gi] = math.log(gw / anchors[best_n][0] + 1e-16, exponent)
+            th[b, best_n, gj, gi] = math.log(gh / anchors[best_n][1] + 1e-16, exponent)
             # One-hot encoding of label
             target_label = int(target[b, t, 0])
             tcls[b, best_n, gj, gi, target_label] = 1

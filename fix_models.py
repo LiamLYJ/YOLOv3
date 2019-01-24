@@ -18,7 +18,7 @@ import matplotlib.patches as patches
 
 from fix_utils import *
 
-def create_modules(module_defs):
+def create_modules(module_defs, exponent):
     """
     Constructs module list of layer blocks from module configuration in module_defs
     """
@@ -100,7 +100,7 @@ def create_modules(module_defs):
             num_classes = int(module_def["classes"])
             img_height = int(hyperparams["height"])
             # Define detection layer
-            yolo_layer = YOLOLayer(anchors, num_classes, img_height)
+            yolo_layer = YOLOLayer(anchors, num_classes, img_height, exponent)
             modules.add_module("yolo_%d" % i, yolo_layer)
         # Register module list and number of output filters
         module_list.append(modules)
@@ -119,7 +119,7 @@ class EmptyLayer(nn.Module):
 class YOLOLayer(nn.Module):
     """Detection layer"""
 
-    def __init__(self, anchors, num_classes, img_dim):
+    def __init__(self, anchors, num_classes, img_dim, exponent):
         super(YOLOLayer, self).__init__()
         self.anchors = anchors
         self.num_anchors = len(anchors)
@@ -132,6 +132,8 @@ class YOLOLayer(nn.Module):
         self.mse_loss = nn.MSELoss(size_average=True)  # Coordinate loss
         self.bce_loss = nn.BCELoss(size_average=True)  # Confidence loss
         self.ce_loss = nn.CrossEntropyLoss()  # Class loss
+
+        self.exponent = exponent
 
     def forward(self, x, targets=None):
         nA = self.num_anchors
@@ -190,6 +192,7 @@ class YOLOLayer(nn.Module):
                 grid_size=nG,
                 ignore_thres=self.ignore_thres,
                 img_dim=self.image_dim,
+                exponent = self.exponent,
             )
 
             nProposals = int((pred_conf > 0.5).sum().item())

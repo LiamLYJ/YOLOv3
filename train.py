@@ -18,6 +18,7 @@ from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
 from tensorboardX import SummaryWriter
+import math
 import cv2
 
 parser = argparse.ArgumentParser()
@@ -28,7 +29,6 @@ parser.add_argument("--batch_size", type=int, default=32, help="size of each ima
 parser.add_argument("--model_config_path", type=str, default="config/yolo_lite.cfg", help="path to model config file")
 parser.add_argument("--train_path", type=str, default="/Dataset/wider_face/train_list_file.txt", help="path to data config file")
 parser.add_argument("--val_path", type=str, default="/Dataset/wider_face/val_list_file.txt", help="path to data config file")
-parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
 parser.add_argument("--conf_thres", type=float, default=0.8, help="object confidence threshold")
 parser.add_argument("--nms_thres", type=float, default=0.4, help="iou thresshold for non-maximum suppression")
 parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
@@ -38,42 +38,9 @@ parser.add_argument(
     "--checkpoint_dir", type=str, default="checkpoints_face/lite", help="directory where model checkpoints are saved"
 )
 parser.add_argument("--use_cuda", type=bool, default=True, help="whether to use cuda if available")
-opt = parser.parse_args()
-print(opt)
+parser.add_argument("--mode", type=int, default=0, help="0 for float, 1 for fix")
+parser.add_argument("--exponent", type= float, default = 1.222, help ='value to set with w and h')
 
-cuda = torch.cuda.is_available() and opt.use_cuda
-
-os.makedirs(opt.checkpoint_dir, exist_ok=True)
-os.makedirs(opt.log_dir, exist_ok=True)
-
-classes = load_classes(opt.class_path)
-
-# Get data configuration
-train_path = os.path.expanduser('~')+ opt.train_path
-val_path = os.path.expanduser('~')+ opt.val_path
-
-# Get hyper parameters
-hyperparams = parse_model_config(opt.model_config_path)[0]
-learning_rate = float(hyperparams["learning_rate"])
-momentum = float(hyperparams["momentum"])
-decay = float(hyperparams["decay"])
-burn_in = int(hyperparams["burn_in"])
-
-# Initiate model
-model = Darknet(opt.model_config_path)
-try:
-    model, load_epoch = load_model(opt.checkpoint_dir, model)
-    print('scuccese load model, eopch: %d'%(load_epoch))
-except:
-    print('initial weight')
-    load_epoch = 0
-    model.apply(weights_init_normal)
-
-if cuda:
-    model = model.cuda()
-
-best_loss = float('inf')  # best test loss
-writer = SummaryWriter(opt.log_dir)
 
 def train(epoch):
 
@@ -316,9 +283,60 @@ def validation(epoch):
         frame_gt = np.expand_dims(np.transpose(frame_gt, [2,0,1]),0)
         writer.add_image('val_gt', frame_gt, iteration)
 
-for epoch in range(load_epoch, opt.epochs):
-    train(epoch)
-    validation(epoch)
-  
-    if epoch % opt.checkpoint_interval == 0:
-        save_model(opt.checkpoint_dir, epoch, model)
+
+if __name__ == '__main__':
+
+    opt = parser.parse_args()
+
+    print(opt)
+    cuda = torch.cuda.is_available() and opt.use_cuda
+
+    os.makedirs(opt.checkpoint_dir, exist_ok=True)
+    os.makedirs(opt.log_dir, exist_ok=True)
+
+    # Get data configuration
+    train_path = os.path.expanduser('~')+ opt.train_path
+    val_path = os.path.expanduser('~')+ opt.val_path
+
+    # Get hyper parameters
+    hyperparams = parse_model_config(opt.model_config_path)[0]
+    learning_rate = float(hyperparams["learning_rate"])
+    momentum = float(hyperparams["momentum"])
+    decay = float(hyperparams["decay"])
+    burn_in = int(hyperparams["burn_in"])
+
+    exponent = math.e if opt.exponent is None else float(opt.exponent) 
+    print ('exponent for traing w&h is:', exponent)
+    print ('mode for this training: ', opt.mode)
+    # Initiate model
+    model = Darknet(opt.model_config_path, exponent, opt.mode, opt.img_size)
+    try:
+        model, load_epoch = load_model(opt.checkpoint_dir, model)
+        print('scuccese load model, eopch: %d'%(load_epoch))
+    except:
+        if opt.mode == 0:
+            print('initial weight')
+            load_epoch = 0
+            model.apply(weights_init_normal)
+        else:
+            try:
+                float_dir = opt.checkpoint_dir.rstrip('_fix')
+                model, load_epoch = load_model(float_dir, model)
+                print('# ########## scuccese load model from float dir:%s, epoch: %d'%(float_dir, load_epoch))
+            except:
+                raise ValueError('can not initial weigth when training in fix mode')
+        
+    if cuda:
+        model = model.cuda()
+
+    best_loss = float('inf')  # best test loss
+    writer = SummaryWriter(opt.log_dir)
+
+    save_model(opt.checkpoint_dir, 0, model)
+
+    for epoch in range(load_epoch, opt.epochs):
+        train(epoch)
+        validation(epoch)
+    
+        if epoch % opt.checkpoint_interval == 0:
+            save_model(opt.checkpoint_dir, epoch, model)
