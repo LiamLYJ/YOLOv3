@@ -332,8 +332,6 @@ if __name__ == '__main__':
     best_loss = float('inf')  # best test loss
     writer = SummaryWriter(opt.log_dir)
 
-    save_model(opt.checkpoint_dir, 0, model)
-
     for epoch in range(load_epoch, opt.epochs):
         train(epoch)
         validation(epoch)
