@@ -42,7 +42,7 @@ parser.add_argument("--mode", type=int, default=0, help="0 for float, 1 for fix"
 parser.add_argument("--exponent", type= float, default = 1.222, help ='value to set with w and h')
 
 
-def train(epoch):
+def train(model, epoch, writer):
 
     model.train()
     train_loss = 0
@@ -163,7 +163,7 @@ def train(epoch):
     frame_gt = np.expand_dims(np.transpose(frame_gt, [2,0,1]),0)
     writer.add_image('gt', frame_gt, iteration)
 
-def validation(epoch):
+def validation(model, epoch, writer):
     model.eval()
     val_loss = 0
     val_recall = 0
@@ -333,8 +333,8 @@ if __name__ == '__main__':
     writer = SummaryWriter(opt.log_dir)
 
     for epoch in range(load_epoch, opt.epochs):
-        train(epoch)
-        validation(epoch)
+        train(model, epoch, writer)
+        validation(model, epoch, writer)
     
         if epoch % opt.checkpoint_interval == 0:
             save_model(opt.checkpoint_dir, epoch, model)

@@ -19,7 +19,7 @@ from torch.autograd import Variable
 parser = argparse.ArgumentParser()
 parser.add_argument('--image_folder', type=str, default='data/samples', help='path to dataset')
 parser.add_argument('--config_path', type=str, default='config/yolo_lite.cfg', help='path to model config file')
-parser.add_argument('--conf_thres', type=float, default=0.9, help='object confidence threshold')
+parser.add_argument('--conf_thres', type=float, default=0.99, help='object confidence threshold')
 parser.add_argument('--nms_thres', type=float, default=0.1, help='iou thresshold for non-maximum suppression')
 parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
 parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
