@@ -285,8 +285,9 @@ def validation(model, epoch, writer):
 if __name__ == '__main__':
 
     opt = parser.parse_args()
-
+    config_path = opt.model_config_path
     print(opt)
+
     cuda = torch.cuda.is_available() and opt.use_cuda
 
     os.makedirs(opt.checkpoint_dir, exist_ok=True)
@@ -297,12 +298,14 @@ if __name__ == '__main__':
     val_path = os.path.expanduser('~')+ opt.val_path
 
    # Initiate model
-    model = Darknet(opt.model_config_path, opt.img_size)
+    module_defs = parse_model_config(config_path)
+    hyperparams = module_defs.pop(0)
+    model = Darknet(config_path, opt.img_size)
     try:
         model, load_epoch = load_model(opt.checkpoint_dir, model)
         print('scuccese load model, eopch: %d'%(load_epoch))
     except:
-        if opt.mode == 0:
+        if 'float' in hyperparams['mode']:
             print('initial weight')
             load_epoch = 0
             model.apply(weights_init_normal)
@@ -319,6 +322,8 @@ if __name__ == '__main__':
 
     best_loss = float('inf')  # best test loss
     writer = SummaryWriter(opt.log_dir)
+
+    # save_model(opt.checkpoint_dir, 0, model)
 
     for epoch in range(load_epoch, opt.epochs):
         train(model, epoch, writer)

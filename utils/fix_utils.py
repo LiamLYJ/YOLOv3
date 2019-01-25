@@ -99,7 +99,7 @@ class fix_conv2d_block(nn.Module):
         # use simulate the bn fusing 
         if self.bn is not None:
             assert self.bias is None
-            fuse_weight = self.weight.clone().view(self.out_channels, -1)
+            fuse_weight = self.weight.detach().view(self.out_channels, -1)
             weight_bn = torch.diag(self.bn.weight.div(torch.sqrt(self.bn.eps + self.bn.running_var)))
             fuse_weight = torch.mm(weight_bn, fuse_weight)
 
