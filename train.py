@@ -38,9 +38,6 @@ parser.add_argument(
     "--checkpoint_dir", type=str, default="checkpoints_face/lite", help="directory where model checkpoints are saved"
 )
 parser.add_argument("--use_cuda", type=bool, default=True, help="whether to use cuda if available")
-parser.add_argument("--mode", type=int, default=0, help="0 for float, 1 for fix")
-parser.add_argument("--exponent", type= float, default = 1.222, help ='value to set with w and h')
-
 
 def train(model, epoch, writer):
 
@@ -59,7 +56,8 @@ def train(model, epoch, writer):
             dataset, batch_size=opt.batch_size, shuffle=True, num_workers=opt.n_cpu)
     Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()))
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), 
+                            lr = model.hyperparams['learning_rate'])
 
     imgs = None
     for batch_i, (_, imgs, targets) in enumerate(dataloader):
@@ -298,18 +296,8 @@ if __name__ == '__main__':
     train_path = os.path.expanduser('~')+ opt.train_path
     val_path = os.path.expanduser('~')+ opt.val_path
 
-    # Get hyper parameters
-    hyperparams = parse_model_config(opt.model_config_path)[0]
-    learning_rate = float(hyperparams["learning_rate"])
-    momentum = float(hyperparams["momentum"])
-    decay = float(hyperparams["decay"])
-    burn_in = int(hyperparams["burn_in"])
-
-    exponent = math.e if opt.exponent is None else float(opt.exponent) 
-    print ('exponent for traing w&h is:', exponent)
-    print ('mode for this training: ', opt.mode)
-    # Initiate model
-    model = Darknet(opt.model_config_path, exponent, opt.mode, opt.img_size)
+   # Initiate model
+    model = Darknet(opt.model_config_path, opt.img_size)
     try:
         model, load_epoch = load_model(opt.checkpoint_dir, model)
         print('scuccese load model, eopch: %d'%(load_epoch))

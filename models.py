@@ -14,14 +14,27 @@ from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import math
 
 from utils.fix_utils import *
 
-def create_modules(module_defs, exponent, mode):
+def create_modules(module_defs):
     """
     Constructs module list of layer blocks from module configuration in module_defs
     """
     hyperparams = module_defs.pop(0)
+
+    # Get hyper parameters
+    hyperparams['learning_rate'] = float(hyperparams["learning_rate"])
+    hyperparams['momentum'] = float(hyperparams["momentum"])
+    hyperparams['decay'] = float(hyperparams["decay"])
+    hyperparams['burn_in'] = int(hyperparams["burn_in"])
+    mode = hyperparams['mode']
+
+    exponent  = math.e if hyperparams['exponent'] is 'e' else float(hyperparams['exponent']) 
+    print ('exponent for traing w&h is:', hyperparams['exponent'])
+    print ('mode for this training: ', mode)
+ 
     output_filters = [int(hyperparams["channels"])]
     module_list = nn.ModuleList()
     for i, module_def in enumerate(module_defs):
@@ -32,7 +45,7 @@ def create_modules(module_defs, exponent, mode):
             filters = int(module_def["filters"])
             kernel_size = int(module_def["size"])
             pad = (kernel_size - 1) // 2 if int(module_def["pad"]) else 0
-            if mode ==0 :
+            if 'float' in mode:
                 modules.add_module(
                     "conv_%d" % i,
                     nn.Conv2d(
@@ -257,10 +270,10 @@ class YOLOLayer(nn.Module):
 class Darknet(nn.Module):
     """YOLOv3 object detection model"""
 
-    def __init__(self, config_path, exponent, mode, img_size=416):
+    def __init__(self, config_path, img_size=416):
         super(Darknet, self).__init__()
         self.module_defs = parse_model_config(config_path)
-        self.hyperparams, self.module_list = create_modules(self.module_defs, exponent, mode)
+        self.hyperparams, self.module_list = create_modules(self.module_defs)
         self.img_size = img_size
         self.seen = 0
         self.header_info = np.array([0, 0, 0, self.seen, 0])
