@@ -29,7 +29,7 @@ parser.add_argument(
     "--checkpoint_dir", type=str, default="checkpoints_face/lite", help="directory where model checkpoints are saved"
 )
 parser.add_argument("--is_fix_model", type=bool, default=False, help='whether to use fix model')
-parser.add_argument("--which_one", type=str, default="030", help="which model to load")
+parser.add_argument("--which_one", type=str, default=None, help="which model to load")
 opt = parser.parse_args()
 print(opt)
 
@@ -42,7 +42,7 @@ if opt.is_fix_model:
     from fix_models import *
     model = Darknet(opt.config_path, img_size=opt.img_size)
     try:
-        model, load_epoch = load_model(opt.checkpoint_dir, model)
+        model, load_epoch = load_model(opt.checkpoint_dir, model, opt.which_one)
         print('# ########## scuccese load model from fix model dir:%s, epoch: %d'%(opt.checkpoint_dir,
                                                                   load_epoch))
     except:
@@ -50,7 +50,7 @@ if opt.is_fix_model:
 else:
     from models import *
     model = Darknet(opt.config_path, img_size=opt.img_size)
-    model, load_epoch = load_model(opt.checkpoint_dir, model)
+    model, load_epoch = load_model(opt.checkpoint_dir, model, opt.which_one)
     print('scuccese load float model, eopch: %d'%(load_epoch))
 
 if cuda:
