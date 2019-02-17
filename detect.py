@@ -38,20 +38,9 @@ cuda = torch.cuda.is_available() and opt.use_cuda
 os.makedirs('output', exist_ok=True)
 
 # Set up model
-if opt.is_fix_model:
-    from fix_models import *
-    model = Darknet(opt.config_path, img_size=opt.img_size)
-    try:
-        model, load_epoch = load_model(opt.checkpoint_dir, model)
-        print('# ########## scuccese load model from fix model dir:%s, epoch: %d'%(opt.checkpoint_dir,
-                                                                  load_epoch))
-    except:
-        raise ValueError('can not initial weigth when training in fix mode')
-else:
-    from models import *
-    model = Darknet(opt.config_path, img_size=opt.img_size)
-    model, load_epoch = load_model(opt.checkpoint_dir, model)
-    print('scuccese load float model, eopch: %d'%(load_epoch))
+model = Darknet(opt.config_path, img_size=opt.img_size)
+model, load_epoch = load_model(opt.checkpoint_dir, model, opt.which_one)
+print('scuccese load float model, eopch: %d'%(load_epoch))
 
 if cuda:
     model.cuda()

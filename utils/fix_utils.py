@@ -73,7 +73,7 @@ class fix_conv2d_block(nn.Module):
         # in the first time, need to deal with outleir
         self.is_first = True
 
-        self.alpha = 0.9
+        self.alpha = 0.95
         self.cur_max_F = 0
         self.cur_min_F = 0
 
@@ -137,7 +137,7 @@ class fix_conv2d_block(nn.Module):
             self.cur_max_F = self.cur_max_F + self.alpha * (new_max - self.cur_max_F)
             self.cur_min_F = self.cur_min_F + self.alpha * (new_min - self.cur_min_F)
 
-        output.data, self.scale_F, self.zero_F = fix_output(output, self.cur_min_F.data, self.cur_max_F.data, bit = BIT_F)
+        output.data, self.scale_F, self.zero_F = fix_output(output, self.cur_min_F, self.cur_max_F.data, bit = 32)
 
         # after forward one time, just set is_first to False
         self.is_first = False
