@@ -294,8 +294,8 @@ def build_targets(
             tx[b, best_n, gj, gi] = gx - gi
             ty[b, best_n, gj, gi] = gy - gj
             # Width and height
-            tw[b, best_n, gj, gi] = math.log(gw / anchors[best_n][0] + 1e-16, exponent)
-            th[b, best_n, gj, gi] = math.log(gh / anchors[best_n][1] + 1e-16, exponent)
+            tw[b, best_n, gj, gi] = gw / anchors[best_n][0] + 1e-16
+            th[b, best_n, gj, gi] = gh / anchors[best_n][1] + 1e-16
             # One-hot encoding of label
             target_label = int(target[b, t, 0])
             tcls[b, best_n, gj, gi, target_label] = 1

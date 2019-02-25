@@ -163,8 +163,8 @@ class YOLOLayer(nn.Module):
         prediction = x.view(nB, nA, self.bbox_attrs, nG, nG).permute(0, 1, 3, 4, 2).contiguous()
 
         # Get outputs
-        x = torch.sigmoid(prediction[..., 0])  # Center x
-        y = torch.sigmoid(prediction[..., 1])  # Center y
+        x = prediction[..., 0]  # Center x
+        y = prediction[..., 1]  # Center y
         w = prediction[..., 2]  # Width
         h = prediction[..., 3]  # Height
         pred_conf = torch.sigmoid(prediction[..., 4])  # Conf
@@ -184,8 +184,8 @@ class YOLOLayer(nn.Module):
         # pred_boxes[..., 2] = torch.exp(w.data) * anchor_w
         # pred_boxes[..., 3] = torch.exp(h.data) * anchor_h
         # change e to a small number -> 1.2, for fix pointed need 
-        pred_boxes[..., 2] = torch.pow(self.exponent, w.data) * anchor_w
-        pred_boxes[..., 3] = torch.pow(self.exponent, h.data) * anchor_h
+        pred_boxes[..., 2] = w.data * anchor_w
+        pred_boxes[..., 3] = h.data * anchor_h
         # Training
         if targets is not None:
 
