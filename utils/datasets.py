@@ -244,8 +244,11 @@ class FaceDataset(Dataset):
             labels = labels[filter_raw_index]
             filter_raw_index = np.where(labels[:, 10] <= self.max_invalid)
             labels = labels[filter_raw_index]
+            filter_raw_index = np.where(labels[:, 3] >= self.max_scale)
+            labels = labels[filter_raw_index]
             filter_raw_index = np.where(labels[:, 4] >= self.max_scale)
             labels = labels[filter_raw_index]
+
             # print("after filter: ", labels.shape)
             labels = labels[:,:5]
 
