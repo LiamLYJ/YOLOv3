@@ -36,6 +36,26 @@ def fix_output(tensor, min_value, max_value, bit):
     tmp = (torch.round((tmp - min_value) /scale)) * scale + min_value
     return tmp, scale, zero
 
+def get_last_layer_max_min(tensor):
+    tmp = tensor.detach()
+    max_anchor1 = torch.max(tmp[:,:4,:,:])
+    min_anchor1 = torch.min(tmp[:,:4,:,:])
+    max_anchor2 = torch.max(tmp[:,7:11,:,:])
+    min_anchor2 = torch.min(tmp[:,7:11,:,:])
+    max_anchor3 = torch.max(tmp[:,14:18,:,:])
+    min_anchor3 = torch.min(tmp[:,14:18,:,:])
+    return min(min_anchor1,min_anchor2,min_anchor3), max(max_anchor1,max_anchor2,max_anchor3)
+
+def fix_last_layer_output(tensor, min_value, max_value, bit):
+    tmp = tensor.detach()
+    anchor1_xywh, _, _ = fix_output(tmp[:,:4,:,:], min_value, max_value, bit)
+    anchor1_other, _, _ = fix_output(tmp[:,4:7,:,:], -8, 8, bit)
+    anchor2_xywh, _, _ = fix_output(tmp[:,7:11,:,:], min_value, max_value, bit)
+    anchor2_other, _, _ = fix_output(tmp[:,11:14,:,:], -8, 8, bit)
+    anchor3_xywh, _, _ = fix_output(tmp[:,14:18,:,:], min_value, max_value, bit)
+    anchor3_other, _, _ = fix_output(tmp[:,18:21,:,:], -8, 8, bit)
+    return torch.cat((anchor1_xywh,anchor1_other,anchor2_xywh,anchor2_other,anchor3_xywh,anchor3_other),1)
+
 def fix_bias(tensor, s1, s2):
     tmp = tensor.detach()
     scale = s1 * s2 
@@ -73,9 +93,11 @@ class fix_conv2d_block(nn.Module):
         # in the first time, need to deal with outleir
         self.is_first = True
 
-        self.alpha = 0.9
+        self.alpha = 0.95
         self.cur_max_F = 0
         self.cur_min_F = 0
+        self.last_max_F = 0
+        self.last_min_F = 0
 
         self.weight = nn.Parameter(torch.Tensor(out_channels, in_channels, kernel_size, kernel_size))
         if bias:
@@ -137,7 +159,22 @@ class fix_conv2d_block(nn.Module):
             self.cur_max_F = self.cur_max_F + self.alpha * (new_max - self.cur_max_F)
             self.cur_min_F = self.cur_min_F + self.alpha * (new_min - self.cur_min_F)
 
-        output.data, self.scale_F, self.zero_F = fix_output(output, self.cur_min_F.data, self.cur_max_F.data, bit = BIT_F)
+        print(self.cur_max_F, self.cur_min_F)
+        #if self.cur_min_F < -10:
+        #    print(output.size())
+        #    print(output[0,6,:,:])
+        if self.cur_min_F > -1:
+            output.data, self.scale_F, self.zero_F = fix_output(output, self.cur_min_F.data, self.cur_max_F.data, bit = BIT_F)
+        else:
+            new_min, new_max = get_last_layer_max_min(output)
+            self.last_max_F = self.last_max_F + self.alpha * (new_max - self.last_max_F)
+            self.last_min_F = self.last_min_F + self.alpha * (new_min - self.last_min_F)
+            #print(new_min,new_max)
+            output.data = fix_last_layer_output(output, self.last_min_F.data, self.last_max_F.data, bit = BIT_F)
+            #output.data, self.scale_F, self.zero_F = fix_output(output, -4, 4, bit = BIT_F)
+            #output_anchor_xywh_part1
+            #print(output.size())
+            #print(output[0,0:7,5,5])
 
         # after forward one time, just set is_first to False
         self.is_first = False

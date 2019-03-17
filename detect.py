@@ -39,12 +39,9 @@ cuda = torch.cuda.is_available() and opt.use_cuda
 os.makedirs(opt.output_path, exist_ok=True)
 
 # Set up model
-try: 
-    model = Darknet(opt.config_path, img_size=opt.img_size)
-    model, load_epoch = load_model(opt.checkpoint_dir, model, opt.which_one)
-    print('scuccese load model, eopch: %d'%(load_epoch))
-except:
-    raise ValueError('can not initial model')
+model = Darknet(opt.config_path, img_size=opt.img_size)
+model, load_epoch = load_model(opt.checkpoint_dir, model, opt.which_one)
+print('scuccese load float model, eopch: %d'%(load_epoch))
 
 if cuda:
     model.cuda()
