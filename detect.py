@@ -15,6 +15,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets
 from torch.autograd import Variable
+from models import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--image_folder', type=str, default='data/samples', help='path to dataset')
@@ -28,14 +29,14 @@ parser.add_argument('--use_cuda', type=bool, default=False, help='whether to use
 parser.add_argument(
     "--checkpoint_dir", type=str, default="checkpoints_face/lite", help="directory where model checkpoints are saved"
 )
-parser.add_argument("--is_fix_model", type=bool, default=False, help='whether to use fix model')
-parser.add_argument("--which_one", type=str, default="030", help="which model to load")
+parser.add_argument("--which_one", type=str, default=None, help="which model to load")
+parser.add_argument('--output_path', type=str, default='output', help='where to output')
 opt = parser.parse_args()
 print(opt)
 
 cuda = torch.cuda.is_available() and opt.use_cuda
 
-os.makedirs('output', exist_ok=True)
+os.makedirs(opt.output_path, exist_ok=True)
 
 # Set up model
 model = Darknet(opt.config_path, img_size=opt.img_size)
@@ -108,4 +109,4 @@ for img_i, (path, detections) in enumerate(zip(imgs, img_detections)):
             y2 = int(y1 + box_h)
             x2 = int(x1 + box_w)
             cv2.rectangle(img, (x1,y1), (x2,y2), (0,255,0), 2)
-    cv2.imwrite('./output/results_%d.png'%(img_i), img[:,:,::-1])
+    cv2.imwrite(os.path.join(opt.output_path, 'results_%d.png'%(img_i)), img[:,:,::-1])
