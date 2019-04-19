@@ -11,6 +11,7 @@ torch>=0.4.0
 torchvision
 pillow
 matplotlib
+tensorboardX
 
 #   BELOW FROM HERE: WHERE TO STEAL
 
@@ -39,10 +40,10 @@ https://pjreddie.com/yolo/.
 ## Installation
     $ git clone https://github.com/LiamLYJ/YOLOv3.git
     $ cd YOLOv3/
-    $ sudo pip3 install -r requirements.txt
+    $ git checkout develop
+    $ sudo pip3 install -r require
 
 ## Train
-Data augmentation as well as additional training tricks remains to be implemented. PRs are welcomed!
 ```
     train.py [-h] [--epochs EPOCHS] [--image_folder IMAGE_FOLDER]
                 [--batch_size BATCH_SIZE]
