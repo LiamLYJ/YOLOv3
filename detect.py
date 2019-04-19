@@ -41,7 +41,16 @@ os.makedirs('output', exist_ok=True)
 model = Darknet(opt.config_path, img_size=opt.img_size)
 model, load_epoch = load_model(opt.checkpoint_dir, model, opt.which_one)
 print('scuccese load float model, eopch: %d'%(load_epoch))
-
+dump_weight = {}
+i = 0
+for module in model.module_list:
+    for layer in module:
+        if isinstance(layer, fix_conv2d_block):
+            dump_weight["conv_weight_" + str(i)] = layer.weight.data.numpy()
+            if layer.bn is not None:
+                dump_weight["conv_bias_" + str(i)] = layer.bn.bias.data.numpy()
+            i += 1
+np.save("./data/weights.npy", dump_weight)
 if cuda:
     model.cuda()
 
@@ -76,6 +85,8 @@ for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
     # Save image and detections
     imgs.extend(img_paths)
     img_detections.extend(detections)
+    if batch_i == 1:
+        break
 
 print ('\nSaving images:')
 # Iterate through images and save plot of detections

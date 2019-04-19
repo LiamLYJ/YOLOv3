@@ -284,6 +284,7 @@ class Darknet(nn.Module):
         output = []
         self.losses = defaultdict(float)
         layer_outputs = []
+        dump_data = {}
         for i, (module_def, module) in enumerate(zip(self.module_defs, self.module_list)):
             if module_def["type"] in ["convolutional", "upsample", "maxpool"]:
                 x = module(x)
@@ -304,9 +305,11 @@ class Darknet(nn.Module):
                     x = module(x)
                 output.append(x)
             layer_outputs.append(x)
+            dump_data[module_def["type"] + "_" + str(i) + "output"] = x.numpy()
 
         self.losses["recall"] /= 3
         self.losses["precision"] /= 3
+        np.save("./data/outputs.npy", dump_data)
         return sum(output) if is_training else torch.cat(output, 1)
 
 
