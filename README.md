@@ -54,6 +54,10 @@ Data augmentation as well as additional training tricks remains to be implemente
                 [--checkpoint_interval CHECKPOINT_INTERVAL]
                 [--checkpoint_dir CHECKPOINT_DIR]
 ```
+## Download Weights
+    $ cd weights/
+    $ bash download_weights.sh
+copy model_800.ckpt to checkpoints_face/lite_fix/
 
 ## Test
 ```
