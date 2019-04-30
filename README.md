@@ -58,9 +58,16 @@ https://pjreddie.com/yolo/.
 ## Download Weights
     $ cd weights/
     $ bash download_weights.sh
+copy model_300.ckpt to checkpoints_face/lite/
+
 copy model_800.ckpt to checkpoints_face/lite_fix/
 
 ## Test
+### float point model
+```
+python detect.py --image_folder=data/face_test --config_path=config/yolo_lite.cfg --checkpoint_dir=checkpoints_face/lite --conf_thres=0.98 --which_one=300
+```
+### fix point model
 ```
 python detect.py --image_folder=data/face_test --config_path=config/yolo_lite_fix.cfg --checkpoint_dir=checkpoints_face/lite_fix --conf_thres=0.98 --which_one=800
 ```
